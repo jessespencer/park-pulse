@@ -17,7 +17,7 @@ export async function renderCompare(root: HTMLElement, s: AppState): Promise<voi
   const opts = parkOptions(idx);
 
   fill(root, 
-    h('section', { class: 'view-head' }, h('div', {}, h('h1', {}, 'Compare two parks'),
+    h('section', { class: 'view-head' }, h('div', {}, h('p', { class: 'eyebrow dark' }, 'Side by side'), h('h1', { class: 'display-2' }, 'Compare two parks'),
       h('p', { class: 'muted' }, 'In Visits mode each heatmap uses its own color range (parks differ in size). Share of year and Index use one shared scale, so colors compare directly.'))),
     h('div', { class: 'controls' }, modeToggle(s.mode)),
     readout,

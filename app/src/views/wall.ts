@@ -1,6 +1,6 @@
 import * as d3 from 'd3';
 import { MONTHS, MONTHS_LONG, fmtCompact, fmtPct, isNationalPark, loadIndex, type ParkSummary } from '../data';
-import { sequentialInterpolator } from '../scales';
+import { miniFingerprint } from '../insights';
 import { setState, type AppState, type WallSort } from '../state';
 import { fill, h, loading, segmented } from '../ui';
 
@@ -21,21 +21,21 @@ export async function renderWall(root: HTMLElement, s: AppState): Promise<void> 
 
   // Robust shared scale: a few tiny, single-month units would otherwise flatten every card.
   const yMax = d3.quantile(parks.map((p) => d3.max(p.profile!)!).sort(d3.ascending), 0.95) ?? 0.2;
-  const interp = sequentialInterpolator();
   const grid = h('div', { class: 'wall' });
   let lastPeak = 0;
   for (const p of parks) {
     if (s.sort === 'peak' && p.peakMonth !== lastPeak) {
       lastPeak = p.peakMonth!;
-      grid.append(h('h3', { class: 'wall-group' }, `Peak in ${MONTHS_LONG[lastPeak - 1]}`));
+      grid.append(h('h3', { class: 'wall-group' }, h('span', {}, `Peak in ${MONTHS_LONG[lastPeak - 1]}`)));
     }
-    grid.append(card(p, yMax, interp));
+    grid.append(card(p, yMax));
   }
 
   fill(root, 
     h('section', { class: 'view-head' },
       h('div', {},
-        h('h1', {}, 'Fingerprint wall'),
+        h('p', { class: 'eyebrow dark' }, 'Field guide'),
+        h('h1', { class: 'display-2' }, 'Park fingerprints'),
         h('p', { class: 'muted' },
           `Each park’s typical 12-month shape: the average share of a year’s visits in each month, ${idx.profileYears[0]}–${idx.profileYears[idx.profileYears.length - 1]} excluding 2020. Bars share one scale, so tall spikes mean a concentrated season.`))),
     h('div', { class: 'controls' },
@@ -54,24 +54,14 @@ export async function renderWall(root: HTMLElement, s: AppState): Promise<void> 
   );
 }
 
-function card(p: ParkSummary, yMax: number, interp: (t: number) => string): HTMLElement {
-  const w = 132, hgt = 46, bw = w / 12;
-  const y = d3.scaleLinear().domain([0, yMax]).range([0, hgt]);
-  const svg = d3.create('svg').attr('viewBox', `0 0 ${w} ${hgt + 10}`).attr('width', '100%').attr('aria-hidden', 'true');
-  svg.selectAll('rect').data(p.profile!).join('rect')
-    .attr('x', (_, i) => i * bw + 0.5).attr('width', bw - 1)
-    .attr('y', (v) => hgt - Math.min(y(v), hgt)).attr('height', (v) => Math.max(Math.min(y(v), hgt), 0.5))
-    .attr('fill', (v) => interp(0.25 + 0.75 * Math.min(v / yMax, 1)));
-  svg.append('line').attr('x1', 0).attr('x2', w).attr('y1', hgt - y(1 / 12)).attr('y2', hgt - y(1 / 12))
-    .attr('class', 'even-line');
-  svg.append('text').attr('x', (p.peakMonth! - 0.5) * bw).attr('y', hgt + 9).attr('text-anchor', 'middle')
-    .attr('class', 'tiny').text(MONTHS[p.peakMonth! - 1][0]);
+function card(p: ParkSummary, yMax: number): HTMLElement {
   return h('button', {
     type: 'button', class: 'fp-card',
     title: `${p.name}: peak ${MONTHS_LONG[p.peakMonth! - 1]}, busiest 3 months = ${fmtPct(p.peakiness!, 0)}`,
     onclick: () => setState({ view: 'park', park: p.code }),
   },
   h('span', { class: 'fp-name' }, p.shortName),
-  svg.node()!,
+  h('span', { class: 'fp-peak' }, `Peak ${MONTHS[p.peakMonth! - 1]}`),
+  miniFingerprint(p.profile!, yMax, p.peakMonth! - 1, 132, 46),
   h('span', { class: 'fp-meta muted' }, `${fmtPct(p.peakiness!, 0)} in top 3 · ${p.avgAnnual ? fmtCompact(p.avgAnnual) : '—'}/yr`));
 }

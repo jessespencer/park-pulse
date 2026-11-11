@@ -9,13 +9,24 @@ export function isDark(): boolean {
   return matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
-/**
- * Viridis is perceptually uniform and colorblind-safe. We orient it so "more
- * visits" always means "more contrast against the page": light→dark on the
- * light theme, dark→light on the dark theme.
+/*
+ * "Pine" sequential ramp: one green hue family, lightness strictly monotonic
+ * (OKLab L 0.92 → 0.32 light / 0.26 → 0.94 dark), checked with the dataviz
+ * validator's lightness test. "More visits" always means more contrast against
+ * the page: light→dark on Day, dark→light on Night.
  */
+const PINE_DAY = ['#E6EAC6', '#D3E2B4', '#A2C98E', '#68A877', '#3B8463', '#225F4C', '#123B33'];
+const PINE_NIGHT = ['#1A2723', '#24402F', '#33613F', '#4E8550', '#7AAA68', '#B3CF8E', '#E9F0C6'];
+/* Diverging "Trail": teal (quieter than usual) ↔ warm neutral ↔ rust (busier). */
+const TRAIL_DAY = ['#1D5A5E', '#3F8682', '#8EBBB2', '#E6E1D4', '#DDB27F', '#B8723A', '#7A3F1D'];
+const TRAIL_NIGHT = ['#3D8F8E', '#2C6866', '#22413F', '#33322E', '#5A3E26', '#99602F', '#E09A55'];
+
 export function sequentialInterpolator(): (t: number) => string {
-  return isDark() ? d3.interpolateViridis : (t: number) => d3.interpolateViridis(1 - t);
+  return d3.piecewise(d3.interpolateLab, isDark() ? PINE_NIGHT : PINE_DAY);
+}
+
+export function divergingInterpolator(): (t: number) => string {
+  return d3.piecewise(d3.interpolateLab, isDark() ? TRAIL_NIGHT : TRAIL_DAY);
 }
 
 export interface ColorScale {
@@ -32,16 +43,17 @@ export function makeScale(mode: Mode, max: number): ColorScale {
   const interp = sequentialInterpolator();
   if (mode === 'index') {
     // Diverging around 100 (= the park's typical level for that month), log2 so
-    // half and double are equidistant. PuOr is colorblind-safe.
+    // half and double are equidistant. Teal↔rust (BrBG family) is colorblind-safe.
     const lim = 2; // ¼× … 4×
-    const s = d3.scaleDiverging<string>(d3.interpolatePuOr).domain([-lim, 0, lim]).clamp(true);
+    const div = divergingInterpolator();
+    const s = d3.scaleDiverging<string>(div).domain([-lim, 0, lim]).clamp(true);
     const toT = (v: number) => Math.log2(Math.max(v, 1) / 100);
     const marks = [25, 50, 100, 200, 400];
     return {
       color: (v) => s(toT(v)),
-      stops: (t) => d3.interpolatePuOr(t),
+      stops: div,
       ticks: marks.map((m) => ({ value: m, pos: (toT(m) + lim) / (2 * lim), label: m === 100 ? '100 (normal)' : String(m) })),
-      unit: 'Index vs this park’s 1979–2019 median for the same month (100 = typical; purple below, orange above)',
+      unit: 'Index vs this park’s 1979–2019 median for the same month (100 = typical; teal = quieter, rust = busier)',
     };
   }
   const domainMax = Math.max(max, mode === 'share' ? 0.01 : 1);

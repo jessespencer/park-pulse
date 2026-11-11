@@ -11,7 +11,8 @@ views are small imperative renderers in `app/src/views/` built with the `h()` he
 - `pipeline/build.py` is the single source of derived numbers (share, index, YoY, profiles, notes). The app only formats and draws them. Change measures there, not in TS.
 - `app/public/data/` is generated output: `index.json` (all park summaries), `national.json`, `parks/{CODE}.json`.
 - `app/src/state.ts` holds all UI state and round-trips it through the URL query string. Add new selections there, including the per-view key list `VIEW_KEYS`.
-- Color scales are theme-aware (`scales.ts`): viridis is flipped so "more" always means more contrast against the background, and views re-render on theme change.
+- Color scales are theme-aware (`scales.ts`). The Day and Night ramps were checked for monotonic lightness, so re-check them if you change a stop. Views re-render on theme change.
+- Styling: all theme differences live in the CSS tokens of `style.css` (Day `:root`, plus Night in both the OS-preference block and the `[data-theme="dark"]` block). Don't write `[data-theme] .selector` overrides; they miss Auto mode. Illustration (`art.ts`) colors come from those same tokens.
 
 ## Rules
 - Unit-code mismatches between IRMA and the NPS API go in `CROSSWALK` in `build.py`. Verify against published visit totals before adding an alias, since codes are easy to guess wrong (JEFM ≠ JEFF).

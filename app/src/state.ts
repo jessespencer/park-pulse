@@ -1,4 +1,4 @@
-export type View = 'park' | 'wall' | 'when' | 'drift' | 'compare';
+export type View = 'home' | 'park' | 'wall' | 'when' | 'drift' | 'compare';
 export type Mode = 'visits' | 'share' | 'index';
 export type WallSort = 'peak' | 'peakiness' | 'total';
 
@@ -16,12 +16,12 @@ export interface AppState {
   b: string;
 }
 
-const VIEWS: View[] = ['park', 'wall', 'when', 'drift', 'compare'];
+const VIEWS: View[] = ['home', 'park', 'wall', 'when', 'drift', 'compare'];
 const MODES: Mode[] = ['visits', 'share', 'index'];
 const SORTS: WallSort[] = ['peak', 'peakiness', 'total'];
 
 const DEFAULTS: AppState = {
-  view: 'park', park: 'ROMO', mode: 'visits', sort: 'peak', month: 10,
+  view: 'home', park: 'ROMO', mode: 'visits', sort: 'peak', month: new Date().getMonth() + 1,
   region: '', st: '', scope: 'np', open: true, a: 'ROMO', b: 'GRSM',
 };
 
@@ -49,6 +49,7 @@ export function readState(): AppState {
 
 /** Keys each view cares about — only those go in the URL, so links stay short. */
 const VIEW_KEYS: Record<View, (keyof AppState)[]> = {
+  home: [],
   park: ['park', 'mode'],
   wall: ['sort', 'scope'],
   when: ['month', 'region', 'st', 'scope', 'open'],
@@ -57,11 +58,13 @@ const VIEW_KEYS: Record<View, (keyof AppState)[]> = {
 };
 
 export function toSearch(s: AppState): string {
+  if (s.view === 'home') return location.pathname;
   const q = new URLSearchParams({ view: s.view });
   for (const k of VIEW_KEYS[s.view]) {
     const v = s[k];
-    if (v === DEFAULTS[k] && k !== 'park' && k !== 'a' && k !== 'b') continue;
-    if (v === '' ) continue;
+    // Identity keys (and month, whose default moves with the calendar) always go in the URL.
+    if (v === DEFAULTS[k] && !['park', 'a', 'b', 'month'].includes(k)) continue;
+    if (v === '') continue;
     q.set(k === 'st' ? 'state' : k, typeof v === 'boolean' ? (v ? '1' : '0') : String(v));
   }
   return `?${q}`;

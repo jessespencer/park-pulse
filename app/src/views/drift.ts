@@ -47,7 +47,7 @@ export async function renderDrift(root: HTMLElement, s: AppState): Promise<void>
 
   fill(root, 
     h('section', { class: 'view-head' },
-      h('div', {}, h('h1', {}, `Season drift: ${park.name}`), h('p', { class: 'lead' }, summary)),
+      h('div', {}, h('p', { class: 'eyebrow dark' }, 'Season drift'), h('h1', { class: 'display-2' }, park.name), h('p', { class: 'lead' }, summary)),
       select('Park', parkOptions(idx), park.code === NATIONAL ? NATIONAL : park.code, (v) => setState({ park: v }))),
     h('h2', {}, 'Average monthly shape by decade'),
     h('p', { class: 'muted' }, 'Share of the year’s visits in each month, averaged over complete years in each decade (2020 excluded). Dashed line = an even 1/12 share.'),
@@ -62,12 +62,12 @@ export async function renderDrift(root: HTMLElement, s: AppState): Promise<void>
 }
 
 function drawLines(host: HTMLElement, ds: Decade[]): void {
-  const W = Math.max(host.clientWidth, 300), H = 220, m = { t: 10, r: 60, b: 24, l: 40 };
+  const W = Math.max(host.clientWidth, 300), H = 220, m = { t: 10, r: 12, b: 24, l: 40 };
   const x = d3.scalePoint<number>().domain(d3.range(12)).range([m.l, W - m.r]);
   const yMax = d3.max(ds, (d) => d3.max(d.profile)) ?? 0.2;
   const y = d3.scaleLinear().domain([0, yMax * 1.05]).nice().range([H - m.b, m.t]);
   const interp = sequentialInterpolator();
-  const c = (i: number) => interp(0.2 + (0.8 * i) / Math.max(ds.length - 1, 1));
+  const c = (i: number) => interp(0.35 + (0.65 * i) / Math.max(ds.length - 1, 1));
   const svg = d3.select(host).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('width', '100%')
     .attr('role', 'img').attr('aria-label', 'Monthly share of visits by decade');
   svg.append('g').attr('class', 'axis').attr('transform', `translate(0,${H - m.b})`)
@@ -78,16 +78,10 @@ function drawLines(host: HTMLElement, ds: Decade[]): void {
   const line = d3.line<number>().x((_, i) => x(i)!).y((v) => y(v));
   ds.forEach((d, i) => {
     svg.append('path').datum(d.profile).attr('d', line).attr('fill', 'none').attr('stroke', c(i)).attr('stroke-width', 2);
-    const lastV = d.profile[11];
-    svg.append('text').attr('class', 'series-label').attr('x', W - m.r + 6).attr('y', y(lastV)).attr('dy', '0.35em')
-      .attr('fill', c(i)).text(d.label);
   });
-  // Nudge overlapping end labels apart.
-  const labels = svg.selectAll<SVGTextElement, unknown>('.series-label').nodes().sort((a, b) => +a.getAttribute('y')! - +b.getAttribute('y')!);
-  for (let i = 1; i < labels.length; i++) {
-    const prev = +labels[i - 1].getAttribute('y')!, cur = +labels[i].getAttribute('y')!;
-    if (cur - prev < 12) labels[i].setAttribute('y', String(prev + 12));
-  }
+  // Legend row (lines converge at season ends, so end labels would collide).
+  host.prepend(h('div', { class: 'series-legend' }, ...ds.map((d, i) =>
+    h('span', {}, h('i', { style: `background:${c(i)}` }), d.label))));
 }
 
 function drawStrip(host: HTMLElement, park: ParkDetail): void {

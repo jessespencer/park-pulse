@@ -5,6 +5,7 @@ across the National Park System as calendar heatmaps, 1979–2025.
 
 **Views**
 
+- **Trailhead** (home). Search, "this month in the parks" (the quietest and busiest national parks right now), and a way into each tool.
 - **Park heatmap.** Rows are years and columns are months. Color can show absolute visits, share of the year, or an index vs. the park's own 1979–2019 median for that month. Hover or tap a cell for the exact count. Shutdowns and closures are flagged.
 - **Fingerprints.** Each park's typical 12-month shape. Sort by peak month, peakiness (the share of visits in the busiest 3 months), or total visits.
 - **When to go.** Pick a month and optionally a region or state to get a map and a ranked list of the quietest parks. Parks are ranked by *share of their own year* that falls in that month, so big and small parks compare fairly.
@@ -12,6 +13,8 @@ across the National Park System as calendar heatmaps, 1979–2025.
 - **Compare.** Two parks side by side with linked hover.
 
 Every selection lives in the URL, so any view can be shared as a link.
+
+The look is "Trailhead '84", a nod to 1980s park signage and outdoor catalogs. It has Day and Night themes, and its illustrations are original, using no NPS marks.
 
 ## Run it
 
@@ -50,7 +53,7 @@ date from the package's metadata.
 ## How the measures work
 
 - **Share of year** is a month's visits divided by that calendar year's total. It's computed only for years with all 12 months reported.
-- **Index vs. normal** is 100 × visits ÷ the park's median for that calendar month over 1979–2019. 100 means typical, 200 means double. The index uses a diverging purple→orange scale, while visits and share use viridis, which is perceptually uniform and colorblind-safe.
+- **Index vs. normal** is 100 × visits ÷ the park's median for that calendar month over 1979–2019. 100 means typical, 200 means double. The index uses a teal↔rust diverging scale around a neutral midpoint. Visits and share use a single-hue "pine" ramp whose lightness is strictly monotonic. Both are colorblind-safe, and each theme gets its own validated steps (see `app/src/scales.ts`).
 - **Typical profile** (fingerprints and When to go) is the mean monthly share across complete years 2015–2025, excluding 2020. A park needs at least 3 such years to get a profile.
 - **Off-season** in When to go means a month with under 2% of a park's year. Such months usually mean seasonal closure. They're hidden by default, and a checkbox shows them.
 
