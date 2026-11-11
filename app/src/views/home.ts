@@ -51,7 +51,7 @@ export async function renderHome(root: HTMLElement): Promise<void> {
   }, field('Park', parkInput), field('Month', monthSel), field('Region', regionSel), field('Type', scopeSel), go);
 
   const hero = h('section', { class: 'hero' },
-    topo({ seed: 7, scale: 560, levels: 26 }),
+    topo({ seed: 7, scale: 560, levels: 26, grid: 240 }),
     h('div', { class: 'hero-inner' },
       h('h1', { class: 'display' }, 'Beat the crowds at ', h('em', {}, 'America’s'), ' national parks'),
       h('p', { class: 'lede' },

@@ -26,14 +26,16 @@ export interface TopoOpts {
   levels?: number;
   /** Every Nth level is drawn dashed (0 = none). */
   dash?: number;
+  /** Map-sheet grid cell size in px, drawn over the contours (0 = none). */
+  grid?: number;
 }
 
 /** Placeholder layer; `paintTopo` fills it once it has a size in the DOM. */
-export function topo({ seed, scale = 260, levels = 20, dash = 4 }: TopoOpts): SVGSVGElement {
+export function topo({ seed, scale = 260, levels = 20, dash = 4, grid = 0 }: TopoOpts): SVGSVGElement {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', 'topo');
   svg.setAttribute('aria-hidden', 'true');
-  Object.assign(svg.dataset, { seed: String(seed), scale: String(scale), levels: String(levels), dash: String(dash) });
+  Object.assign(svg.dataset, { seed: String(seed), scale: String(scale), levels: String(levels), dash: String(dash), grid: String(grid) });
   return svg;
 }
 
@@ -69,6 +71,16 @@ function perlin(rand: () => number): (x: number, y: number) => number {
     const x2 = grad(ab, xf, yf - 1) + u * (grad(bb, xf - 1, yf - 1) - grad(ab, xf, yf - 1));
     return x1 + v * (x2 - x1);
   };
+}
+
+/** Square grid centered on the layer, so edge cells are equal on both sides. */
+function gridPath(W: number, H: number, g: number): string {
+  if (g <= 0) return '';
+  const x0 = ((W / 2) % g), y0 = ((H / 2) % g);
+  const inside = (lim: number) => (t: number) => t > 12 && t < lim - 12; // no lines hugging an edge
+  const xs = d3.range(x0, W, g).filter(inside(W)).map((x) => `M${x.toFixed(1)} 0V${H.toFixed(1)}`);
+  const ys = d3.range(y0, H, g).filter(inside(H)).map((y) => `M0 ${y.toFixed(1)}H${W.toFixed(1)}`);
+  return `<path class="grid" d="${xs.join('')}${ys.join('')}"/>`;
 }
 
 function draw(svg: SVGSVGElement): void {
@@ -112,7 +124,7 @@ function draw(svg: SVGSVGElement): void {
     .map((c, i) => [toPath(c), dash > 0 && i % dash === dash - 1] as const)
     .filter(([d]) => d)
     .map(([d, dashed]) => `<path${dashed ? ' class="dash"' : ''} d="${d}"/>`)
-    .join('');
+    .join('') + gridPath(W, H, Number(svg.dataset.grid) || 0);
   svg.dataset.w = String(Math.round(W));
 }
 
