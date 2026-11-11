@@ -1,0 +1,25 @@
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+dist/
+build/
+*.log
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Pipeline data (re-downloadable; see pipeline/README section in root README)
+pipeline/data/raw/
+pipeline/data/*.duckdb

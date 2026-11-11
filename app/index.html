@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Park Pulse</title>
+    <meta name="description" content="When America's national parks get crowded: monthly visits across the National Park System, 1979 to present." />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="?view=park&amp;park=ROMO">Park Pulse</a>
+      <nav id="nav" aria-label="Views"></nav>
+      <div class="header-tools">
+        <label class="search">
+          <span class="visually-hidden">Search parks</span>
+          <input id="search" type="search" list="park-list" placeholder="Search parks…" autocomplete="off" />
+          <datalist id="park-list"></datalist>
+        </label>
+        <button id="theme" type="button" class="ghost" aria-label="Theme"></button>
+      </div>
+    </header>
+    <div id="banner" hidden></div>
+    <main id="app" aria-live="polite"></main>
+    <footer id="footer"></footer>
+    <div id="tooltip" role="status" hidden></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
