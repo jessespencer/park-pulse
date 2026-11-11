@@ -1,7 +1,9 @@
 # Park Pulse
 
-Deviations from the global prefs: the app is **vanilla TypeScript + D3, not React**. The spec asked for D3, and
-views are small imperative renderers in `app/src/views/` built with the `h()` helper in `app/src/ui.ts`.
+Notes for coding agents and contributors. User-facing docs are in README.md.
+
+The app is **vanilla TypeScript + D3, with no UI framework**. Views are small imperative renderers in
+`app/src/views/`, built with the `h()` helper in `app/src/ui.ts`.
 
 ## Commands
 - Data: `cd pipeline && .venv/bin/python fetch_data.py && .venv/bin/python fetch_metadata.py && .venv/bin/python build.py`
