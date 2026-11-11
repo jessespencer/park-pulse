@@ -130,7 +130,7 @@ async function boot(): Promise<void> {
   const mark = h('span', { class: 'footer-mark' });
   mark.innerHTML = emblem(32);
   footer.querySelector('.footer-brand')!.prepend(mark);
-  footer.prepend(topo({ seed: 17, step: 0.08, index: 4 }));
+  footer.prepend(topo({ seed: 17, scale: 480, levels: 20 }));
 
   // Scroll to top only when moving to a new page (view or park), not on filter tweaks.
   let prev = getState();

@@ -51,7 +51,7 @@ export async function renderHome(root: HTMLElement): Promise<void> {
   }, field('Park', parkInput), field('Month', monthSel), field('Region', regionSel), field('Type', scopeSel), go);
 
   const hero = h('section', { class: 'hero' },
-    topo({ seed: 7, step: 0.1, index: 4 }),
+    topo({ seed: 7, scale: 560, levels: 26 }),
     h('div', { class: 'hero-inner' },
       h('h1', { class: 'display' }, 'Beat the crowds at ', h('em', {}, 'America’s'), ' national parks'),
       h('p', { class: 'lede' },
@@ -60,7 +60,7 @@ export async function renderHome(root: HTMLElement): Promise<void> {
 
   const tile = (cls: string, seed: number, eyebrow: string, title: string, cta: string, onclick: () => void) =>
     h('button', { type: 'button', class: `tile ${cls}`, onclick },
-      topo({ seed, step: 0.085, index: 4 }),
+      topo({ seed, scale: 420, levels: 20 }),
       h('span', { class: 'eyebrow' }, eyebrow),
       h('span', { class: 'tile-title' }, title),
       h('span', { class: 'tile-go' }, cta));
