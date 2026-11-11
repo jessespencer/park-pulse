@@ -27,7 +27,7 @@ export async function renderPark(root: HTMLElement, s: AppState): Promise<void> 
     stateLine(park.states),
   ].filter(Boolean).join(' · ');
   const sign = h('section', { class: 'park-sign' },
-    topo({ seed, step: 0.06, index: 4 }),
+    topo({ seed, step: 0.085, index: 4 }),
     h('div', { class: 'sign-text' },
       h('p', { class: 'eyebrow' }, eyebrow || 'National Park System'),
       h('h1', {}, isNat ? 'All park units' : park.shortName && park.shortName !== park.name ? park.shortName : park.name),

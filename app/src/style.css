@@ -28,14 +28,15 @@
   --bar-peak: #1F3D2F;
   --grid: #ECE8DE;
 
-  --contour: #DCD4C0;
-  --contour-idx: #C6BBA0;
+  --contour: #D3CAB0;
+  --contour-idx: #B8AB8A;
+  --contour-fill: transparent;
 
   --sign-bg: #1F3D2F;
   --sign-ink: #F1ECDF;
   --sign-muted: #B9C9B8;
-  --sign-line: rgb(241 236 223 / 0.12);
-  --sign-idx: rgb(241 236 223 / 0.24);
+  --sign-line: rgb(241 236 223 / 0.16);
+  --sign-idx: rgb(241 236 223 / 0.30);
 
   --tile-1a: #8FA99A; --tile-1b: #1F3D2F;
   --tile-2a: #A9B98A; --tile-2b: #2F5D45;
@@ -66,8 +67,8 @@
     --border: #2C3B33; --border-strong: #42554A;
     --forest: #1F3D2F; --pine: #7FA867; --sage: #7FA867; --accent: #A6CC93; --btn-bg: #A6CC93; --btn-ink: #0B110E; --quiet: #6FC0B6;
     --bar: #3E5647; --bar-peak: #A6CC93; --grid: #1A2520;
-    --contour: #17221D; --contour-idx: #24352C;
-    --sign-bg: #1F3D2F; --sign-ink: #EEE8D8; --sign-muted: #A9C2A6; --sign-line: rgb(238 232 216 / 0.10); --sign-idx: rgb(238 232 216 / 0.20);
+    --contour: #1F2E27; --contour-idx: #30463A; --contour-fill: transparent;
+    --sign-bg: #1F3D2F; --sign-ink: #EEE8D8; --sign-muted: #A9C2A6; --sign-line: rgb(238 232 216 / 0.14); --sign-idx: rgb(238 232 216 / 0.26);
     --tile-1a: #3A5A48; --tile-1b: #15291F; --tile-2a: #4F6236; --tile-2b: #1F3D2F;
     --annot: #E0C070; --annot-covid: #F07A9A; --annot-data: #B3A6F0; --highlight: #FFFFFF;
     --warn-bg: #3A2A10; --warn-text: #FCD9A0; --tag-ink: #0B110E;
@@ -80,8 +81,8 @@
   --border: #2C3B33; --border-strong: #42554A;
   --forest: #1F3D2F; --pine: #7FA867; --sage: #7FA867; --accent: #A6CC93; --btn-bg: #A6CC93; --btn-ink: #0B110E; --quiet: #6FC0B6;
   --bar: #3E5647; --bar-peak: #A6CC93; --grid: #1A2520;
-  --contour: #17221D; --contour-idx: #24352C;
-  --sign-bg: #1F3D2F; --sign-ink: #EEE8D8; --sign-muted: #A9C2A6; --sign-line: rgb(238 232 216 / 0.10); --sign-idx: rgb(238 232 216 / 0.20);
+  --contour: #1F2E27; --contour-idx: #30463A; --contour-fill: transparent;
+  --sign-bg: #1F3D2F; --sign-ink: #EEE8D8; --sign-muted: #A9C2A6; --sign-line: rgb(238 232 216 / 0.14); --sign-idx: rgb(238 232 216 / 0.26);
   --tile-1a: #3A5A48; --tile-1b: #15291F; --tile-2a: #4F6236; --tile-2b: #1F3D2F;
   --annot: #E0C070; --annot-covid: #F07A9A; --annot-data: #B3A6F0; --highlight: #FFFFFF;
   --warn-bg: #3A2A10; --warn-text: #FCD9A0; --tag-ink: #0B110E;
@@ -122,8 +123,13 @@ button, select, input { font: inherit; color: inherit; }
 
 /* Topographic layers (paths drawn by art.ts) */
 svg.topo { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
-svg.topo path { fill: none; stroke: var(--contour); stroke-width: 1; vector-effect: non-scaling-stroke; }
-svg.topo path.idx { stroke: var(--contour-idx); stroke-width: 1.5; }
+/* Bold, printed-map contours: heavy uniform lines, heavier index lines, and a
+   faint fill per level that stacks into darker terrain toward each peak. */
+svg.topo path {
+  fill: none; stroke: var(--topo-line, var(--contour));
+  stroke-width: 2.25px; stroke-linejoin: round; vector-effect: non-scaling-stroke;
+}
+svg.topo path.idx { fill: var(--topo-fill, var(--contour-fill)); stroke: var(--topo-idx, var(--contour-idx)); stroke-width: 4px; }
 
 /* ---------- Header ---------- */
 .site-header {
@@ -133,7 +139,7 @@ svg.topo path.idx { stroke: var(--contour-idx); stroke-width: 1.5; }
 }
 body[data-view="home"] .site-header { border-bottom-color: transparent; }
 .header-inner {
-  max-width: 1180px; margin: 0 auto; padding: 0 24px; min-height: 68px;
+  padding: 0 clamp(16px, 3vw, 40px); min-height: 68px; /* full bleed, edge to edge */
   display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 2rem;
 }
 .brand { display: flex; align-items: center; gap: 0.6rem; text-decoration: none; color: var(--accent); }
@@ -167,7 +173,7 @@ body[data-view="home"] .header-tools .search { display: none; }
 
 main { min-height: 60vh; }
 .stage { max-width: 1180px; margin: 0 auto; padding: 2rem 24px 4rem; }
-.stage-full { padding: 0 0 3rem; }
+.stage-full { max-width: none; padding: 0 0 3rem; }
 .stage-full > .section, .stage-full > .tiles { max-width: 1180px; margin: 0 auto; padding: 3.25rem 24px 0; }
 
 /* ---------- Buttons / controls ---------- */
@@ -221,9 +227,9 @@ main { min-height: 60vh; }
 .park-name { font: 700 1.12rem/1.15 var(--font-sign); text-transform: uppercase; letter-spacing: 0.02em; }
 
 /* Contour rule: a pair of wavy lines used as a section break. */
-.contour-rule { display: block; width: 100%; height: 16px; margin: 1.5rem 0; }
-.contour-rule path { fill: none; stroke: var(--contour-idx); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
-.contour-rule path + path { stroke: var(--contour); stroke-width: 1; }
+.contour-rule { display: block; width: 100%; height: 18px; margin: 1.5rem 0; overflow: visible; }
+.contour-rule path { fill: none; stroke: var(--contour-idx); stroke-width: 3.5px; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.contour-rule path + path { stroke: var(--contour); stroke-width: 2px; }
 
 /* ---------- Home: hero ---------- */
 .hero { position: relative; overflow: hidden; text-align: center; padding: clamp(3.5rem, 10vh, 6rem) 24px clamp(3.5rem, 10vh, 6.5rem); }
@@ -246,7 +252,8 @@ main { min-height: 60vh; }
 }
 .finder-field { position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; padding: 0.4rem 1.3rem; border-radius: 999px; cursor: pointer; }
 .finder-field + .finder-field::before { content: ''; position: absolute; left: 0; top: 22%; bottom: 22%; border-left: 1px solid var(--border); }
-.finder-field:hover, .finder-field:hover::before, .finder-field:hover + .finder-field::before,
+.finder-field:hover, .finder-field:focus-within { background: var(--surface-2); }
+.finder-field:hover::before, .finder-field:hover + .finder-field::before,
 .finder-field:focus-within::before, .finder-field:focus-within + .finder-field::before { opacity: 0; }
 .finder-field > span { font-size: 0.72rem; color: var(--muted); }
 .finder-field input, .finder-field select {
@@ -273,8 +280,7 @@ main { min-height: 60vh; }
   transition: transform 0.15s;
 }
 .tile:hover { transform: translateY(-2px); }
-.tile svg.topo path { stroke: rgb(255 255 255 / 0.14); }
-.tile svg.topo path.idx { stroke: rgb(255 255 255 / 0.26); }
+.tile { --topo-line: rgb(255 255 255 / 0.2); --topo-idx: rgb(255 255 255 / 0.36); --topo-fill: rgb(255 255 255 / 0.025); }
 .tile > :not(svg) { position: relative; z-index: 1; }
 .tile .eyebrow { color: rgb(255 255 255 / 0.78); margin: 0; }
 .tile-title { font: 400 2.15rem/1 var(--font-display); margin: 0.35rem 0 1rem; max-width: 18ch; }
@@ -331,8 +337,7 @@ main { min-height: 60vh; }
   display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem 2rem;
   background: var(--sign-bg); color: var(--sign-ink); border-radius: var(--radius); padding: 2rem 2.2rem;
 }
-.park-sign svg.topo path, footer svg.topo path { stroke: var(--sign-line); }
-.park-sign svg.topo path.idx, footer svg.topo path.idx { stroke: var(--sign-idx); }
+.park-sign, footer { --topo-line: var(--sign-line); --topo-idx: var(--sign-idx); --topo-fill: rgb(255 255 255 / 0.025); }
 .park-sign > :not(svg) { position: relative; z-index: 1; }
 .park-sign .eyebrow { color: var(--sign-muted); }
 .park-sign h1 { font: 800 clamp(2.6rem, 6.4vw, 4.4rem)/0.88 var(--font-sign); text-transform: uppercase; letter-spacing: 0.012em; }
@@ -506,6 +511,7 @@ footer a:hover { color: var(--sign-ink); }
   #nav { order: 4; width: calc(100% + 32px); margin: 0 -16px; padding: 0.2rem 16px 0.3rem; overflow-x: auto; scrollbar-width: none; gap: 1.3rem; }
   #nav::-webkit-scrollbar { display: none; }
   .stage { padding: 1.4rem 16px 3rem; }
+  .stage-full { padding: 0 0 3rem; }
   .stage-full > .section, .stage-full > .tiles { padding-left: 16px; padding-right: 16px; }
   .month-header, .compare .month-header, .readout { top: 0; }
   .hero { padding: 2.75rem 16px 2.5rem; }

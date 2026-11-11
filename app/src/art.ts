@@ -47,8 +47,9 @@ function rng(seed: number): () => number {
 function draw(svg: SVGSVGElement): void {
   const box = svg.getBoundingClientRect();
   if (!box.width || !box.height) return;
-  const W = box.width, H = box.height, cell = 5;
-  const gw = Math.ceil(W / cell) + 1, gh = Math.ceil(H / cell) + 1;
+  // Sample past the edges so lines run off-canvas instead of hugging the border.
+  const W = box.width, H = box.height, cell = 6, pad = 6;
+  const gw = Math.ceil(W / cell) + 1 + pad * 2, gh = Math.ceil(H / cell) + 1 + pad * 2;
   const rand = rng(Number(svg.dataset.seed) || 1);
   const span = Math.max(gw, gh);
   const peaks = d3.range(9).map(() => ({ x: rand() * gw, y: rand() * gh, a: 0.5 + rand(), s: (0.12 + rand() * 0.22) * span }));
@@ -67,11 +68,21 @@ function draw(svg: SVGSVGElement): void {
   const step = Number(svg.dataset.step) || 0.06;
   const idx = Number(svg.dataset.index) || 0;
   const [lo, hi] = d3.extent(v) as [number, number];
-  const path = d3.geoPath(d3.geoIdentity().scale(cell));
-  const lines = d3.contours().size([gw, gh]).thresholds(d3.range(Math.ceil(lo / step) * step, hi, step))(Array.from(v));
+  const levels = d3.contours().size([gw, gh]).thresholds(d3.range(Math.ceil(lo / step) * step, hi, step))(Array.from(v));
+  // Smooth each ring into a closed B-spline: bold strokes need clean curves, not grid stair-steps.
+  const curve = d3.line<[number, number]>().curve(d3.curveBasisClosed);
+  const toPath = (mp: d3.ContourMultiPolygon) => mp.coordinates
+    .flatMap((poly) => poly)
+    .filter((ring) => ring.length >= 10)
+    .map((ring) => curve(ring.filter((_, i) => i % 2 === 0).map(([x, y]) => [(x - pad) * cell, (y - pad) * cell])))
+    .join('');
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.setAttribute('preserveAspectRatio', 'xMidYMid slice');
-  svg.innerHTML = lines.map((c, k) => `<path${idx && k % idx === 0 ? ' class="idx"' : ''} d="${path(c)}"/>`).join('');
+  svg.innerHTML = levels
+    .map((c, k) => [toPath(c), idx && k % idx === 0])
+    .filter(([d]) => d)
+    .map(([d, isIdx]) => `<path${isIdx ? ' class="idx"' : ''} d="${d}"/>`)
+    .join('');
   svg.dataset.w = String(Math.round(W));
 }
 
