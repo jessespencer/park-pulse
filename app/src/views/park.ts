@@ -1,5 +1,5 @@
 import * as d3 from 'd3';
-import { emblem } from '../art';
+import { contourRule, topo } from '../art';
 import { MONTHS, MONTHS_LONG, NATIONAL, fmtInt, fmtPct, loadIndex, loadPark, stateLine, type ParkDetail } from '../data';
 import { renderHeatmap } from '../heatmap';
 import { busyMonths, monthSpan, quietMonths } from '../insights';
@@ -21,19 +21,20 @@ export async function renderPark(root: HTMLElement, s: AppState): Promise<void> 
   const heat = h('div', {});
 
   // Entrance sign
-  const badge = h('div', { class: 'sign-badge' });
-  badge.innerHTML = emblem(56);
-  badge.append(h('span', {}, `Counted since ${park.firstYear}`));
+  const seed = [...park.code].reduce((a, c) => a * 31 + c.charCodeAt(0), 7);
   const eyebrow = [
     !isNat && !['Unknown', 'Other', 'Not in NPS API'].includes(park.designation) ? park.designation : null,
     stateLine(park.states),
   ].filter(Boolean).join(' · ');
   const sign = h('section', { class: 'park-sign' },
+    topo({ seed, scale: 440, levels: 20, grid: 160 }),
     h('div', { class: 'sign-text' },
       h('p', { class: 'eyebrow' }, eyebrow || 'National Park System'),
-      h('h1', { class: 'display' }, isNat ? 'All park units' : park.shortName && park.shortName !== park.name ? park.shortName : park.name),
+      h('h1', {}, isNat ? 'All park units' : park.shortName && park.shortName !== park.name ? park.shortName : park.name),
       isNat || park.shortName === park.name ? null : h('p', { class: 'sign-sub' }, park.name)),
-    badge);
+    h('div', { class: 'sign-stat' },
+      h('p', { class: 'eyebrow' }, park.latestAnnual != null ? `${park.lastYear} visits` : `Counted since ${park.firstYear}`),
+      h('b', {}, park.latestAnnual != null ? fmtInt(park.latestAnnual) : String(park.firstYear))));
 
   // Trail notes: the answer before the detail.
   const notes = h('dl', { class: 'trail-notes' });
@@ -46,7 +47,6 @@ export async function renderPark(root: HTMLElement, s: AppState): Promise<void> 
     note('Busy season', monthSpan(busyMonths(park)), 'Months above an even 1/12 share');
   }
   if (park.peakiness != null) note('Busiest 3 months', fmtPct(park.peakiness, 0), 'of all visits in a typical year');
-  if (park.latestAnnual != null) note(`${park.lastYear} visits`, fmtInt(park.latestAnnual));
 
   const ribbon = h('div', { class: 'ribbon-wrap' });
   const breaks = park.notes.filter((n) => n.year >= park.firstYear);
@@ -57,6 +57,7 @@ export async function renderPark(root: HTMLElement, s: AppState): Promise<void> 
       select('Change park', parkOptions(idx), park.code, (v) => setState({ park: v })),
       !isNat && h('a', { class: 'chip-link', href: `?view=drift&park=${park.code}`, onclick: (e: Event) => { e.preventDefault(); setState({ view: 'drift' }); } }, 'Season drift →'),
       !isNat && h('a', { class: 'chip-link', href: `?view=compare&a=${park.code}`, onclick: (e: Event) => { e.preventDefault(); setState({ view: 'compare', a: park.code }); } }, 'Compare →')),
+    notes.childElementCount ? contourRule() : null,
     notes.childElementCount ? notes : null,
     park.profile && h('section', { class: 'section tight' },
       h('h2', { class: 'section-title' }, 'A typical year'),

@@ -1,7 +1,10 @@
-import '@fontsource-variable/fraunces/full.css';
+import '@fontsource/grenze/700.css';
+import '@fontsource/grenze/800.css';
+import '@fontsource/instrument-serif/400.css';
+import '@fontsource/instrument-serif/400-italic.css';
 import '@fontsource-variable/public-sans';
 import './style.css';
-import { emblem, stripes } from './art';
+import { emblem, paintTopo, topo } from './art';
 import { loadIndex } from './data';
 import { bindSearch, parkLabel } from './search';
 import { getState, setState, subscribe, type AppState, type View } from './state';
@@ -47,6 +50,7 @@ async function render(s: AppState): Promise<void> {
   app.replaceChildren(stage);
   try {
     await view.render(stage, s);
+    if (seq === renderSeq) paintTopo();
   } catch (err) {
     if (seq === renderSeq) stage.replaceChildren(errorBox(String(err instanceof Error ? err.message : err)));
   }
@@ -55,11 +59,19 @@ async function render(s: AppState): Promise<void> {
 /* Theme: Auto (OS) → Day → Night. A per-viewer convenience, so localStorage is fine. */
 type Theme = 'auto' | 'light' | 'dark';
 const themeBtn = document.getElementById('theme') as HTMLButtonElement;
+const icon = (d: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">${d}</svg>`;
+const THEME_ICON: Record<Theme, string> = {
+  auto: icon('<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>'),
+  light: icon('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+  dark: icon('<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>'),
+};
 function applyTheme(t: Theme): void {
   if (t === 'auto') delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = t;
-  themeBtn.textContent = t === 'auto' ? '◐ Auto' : t === 'light' ? '☀ Day' : '☾ Night';
-  themeBtn.setAttribute('aria-label', `Theme: ${t === 'light' ? 'day' : t === 'dark' ? 'night' : 'auto'}. Click to change.`);
+  themeBtn.innerHTML = THEME_ICON[t];
+  const name = t === 'light' ? 'Day' : t === 'dark' ? 'Night' : 'Auto';
+  themeBtn.title = `Theme: ${name}`;
+  themeBtn.setAttribute('aria-label', `Theme: ${name}. Click to change.`);
 }
 let theme: Theme = 'auto';
 try { theme = (localStorage.getItem('pp-theme') as Theme) || 'auto'; } catch { /* storage blocked */ }
@@ -91,8 +103,7 @@ addEventListener('resize', () => {
 });
 
 async function boot(): Promise<void> {
-  document.getElementById('brand-mark')!.innerHTML = emblem(38);
-  document.getElementById('stripes')!.innerHTML = stripes();
+  document.getElementById('brand-mark')!.innerHTML = emblem(28);
   syncHeaderHeight();
   document.fonts?.ready.then(syncHeaderHeight);
   document.getElementById('brand')!.addEventListener('click', (e) => { e.preventDefault(); setState({ view: 'home' }); });
@@ -117,8 +128,9 @@ async function boot(): Promise<void> {
       ` (CC0) · recreation visits 1979–${lastYear} · published ${idx.asOf ?? 'n/a'}. `,
       'Counts as published by NPS; counting methods vary by park. An independent project — not affiliated with or endorsed by the National Park Service.')));
   const mark = h('span', { class: 'footer-mark' });
-  mark.innerHTML = emblem(44);
+  mark.innerHTML = emblem(32);
   footer.querySelector('.footer-brand')!.prepend(mark);
+  footer.prepend(topo({ seed: 17, scale: 480, levels: 20, grid: 240 }));
 
   // Scroll to top only when moving to a new page (view or park), not on filter tweaks.
   let prev = getState();
