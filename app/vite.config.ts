@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
 
-// Relative base so the static build works from any path (GitHub Pages, S3, file share).
-export default defineConfig({ base: './' });
+// Served as a GitHub Pages project site at https://jessedestroys.com/park-pulse/.
+// The base must match the repo name; data fetches use import.meta.env.BASE_URL.
+export default defineConfig({ base: '/park-pulse/' });

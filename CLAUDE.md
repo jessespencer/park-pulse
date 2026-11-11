@@ -8,6 +8,7 @@ The app is **vanilla TypeScript + D3, with no UI framework**. Views are small im
 ## Commands
 - Data: `cd pipeline && .venv/bin/python fetch_data.py && .venv/bin/python fetch_metadata.py && .venv/bin/python build.py`
 - App: `cd app && npm run dev` / `npm run build` (tsc + vite; static output in `app/dist/`)
+- Deploy: push to `main`. `.github/workflows/deploy.yml` publishes to GitHub Pages at https://jessedestroys.com/park-pulse/. Vite `base` is `/park-pulse/`, so the dev server is at `localhost:<port>/park-pulse/`. Use `import.meta.env.BASE_URL` for asset/data paths, never a leading `/`.
 
 ## Architecture
 - `pipeline/build.py` is the single source of derived numbers (share, index, YoY, profiles, notes). The app only formats and draws them. Change measures there, not in TS.

@@ -3,6 +3,8 @@
 An interactive, static web app showing the monthly rhythm of recreation visits
 across the National Park System as calendar heatmaps, 1979–2025.
 
+**Live:** <https://jessedestroys.com/park-pulse/>
+
 **Views**
 
 - **Trailhead** (home). Search, "this month in the parks" (the quietest and busiest national parks right now), and a way into each tool.
@@ -37,6 +39,10 @@ Set it as the `NPS_API_KEY` env var or put it in `pipeline/.env`, which is gitig
 Without a key, `build.py` still runs, but parks appear only by their four-letter code. Search by
 name, the designation filter, state and region filters, and the map all stay empty until
 the metadata is fetched.
+
+## Deploy
+
+Every push to `main` deploys to GitHub Pages through `.github/workflows/deploy.yml`. The workflow builds `app/` and publishes `app/dist`. The site is served as a project site under the user site's custom domain, at `https://jessedestroys.com/park-pulse/`, so `base` in `app/vite.config.ts` must stay `/park-pulse/`. The generated data in `app/public/data/` is committed, so CI never runs the Python pipeline or needs an API key. After rebuilding the data locally, commit it to publish.
 
 ## Sources
 
