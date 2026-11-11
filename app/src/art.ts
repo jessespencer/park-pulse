@@ -1,62 +1,93 @@
 /**
  * Original illustration for Park Pulse — no NPS marks. Colors come from CSS
- * custom properties so every piece themes with day/night.
+ * custom properties (or currentColor) so every piece themes with day/night.
  */
+import * as d3 from 'd3';
 
-let uid = 0;
-const id = (p: string) => `${p}-${++uid}`;
-
-/** Badge: striped 80s sun behind a ridgeline that doubles as a pulse trace. */
-export function emblem(size = 40): string {
-  const clip = id('em');
-  return `<svg class="emblem" width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true">
-  <defs><clipPath id="${clip}"><circle cx="32" cy="32" r="29"/></clipPath></defs>
-  <circle cx="32" cy="32" r="31" fill="var(--emblem-ring)"/>
-  <g clip-path="url(#${clip})">
-    <rect width="64" height="64" fill="var(--emblem-sky)"/>
-    <circle cx="32" cy="31" r="13" fill="var(--sun)"/>
-    <rect x="16" y="31" width="32" height="1.6" fill="var(--emblem-sky)"/>
-    <rect x="16" y="35" width="32" height="2.2" fill="var(--emblem-sky)"/>
-    <rect x="16" y="39.6" width="32" height="2.8" fill="var(--emblem-sky)"/>
-    <path d="M-2 50 L14 34 L22 41 L33 27 L46 40 L52 35 L66 50 L66 66 L-2 66Z" fill="var(--sage)"/>
-    <path d="M-2 56 L10 47 L20 52 L30 45 L44 54 L56 48 L66 54 L66 66 L-2 66Z" fill="var(--pine)"/>
-    <polyline points="4,50 19,50 23,43 28,57 33,38 38,50 60,50" fill="none" stroke="var(--cream)" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
-  </g>
-  <circle cx="32" cy="32" r="29" fill="none" stroke="var(--cream)" stroke-width="1.5"/>
+/** Mark: a ring around a ridgeline that doubles as a pulse trace. Inherits currentColor. */
+export function emblem(size = 28): string {
+  return `<svg class="emblem" width="${size}" height="${size}" viewBox="0 0 30 30" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+  <circle cx="15" cy="15" r="13.5"/><path d="M4.5 19.5 L10 12.5 L13 16 L16.5 9 L21 15.5 L23 13.5 L25.5 19.5"/>
 </svg>`;
 }
 
-/** Layered ridgelines with a banded sun — the Trailhead hero backdrop. */
-export function heroScene(): string {
-  const sky = id('sky');
-  const sunClip = id('sun');
-  const trees = Array.from({ length: 34 }, (_, i) => {
-    const x = 8 + i * 36 + ((i * 53) % 17);
-    const h = 26 + ((i * 37) % 22);
-    const base = 318 + ((i * 29) % 10);
-    return `<path d="M${x} ${base} L${x + h * 0.32} ${base - h} L${x + h * 0.64} ${base}Z"/>`;
-  }).join('');
-  return `<svg class="hero-scene" viewBox="0 0 1200 360" preserveAspectRatio="xMaxYMax slice" aria-hidden="true">
-  <defs><linearGradient id="${sky}" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0" stop-color="var(--sky-top)"/><stop offset="1" stop-color="var(--sky-bottom)"/>
-  </linearGradient><clipPath id="${sunClip}"><circle cx="975" cy="150" r="112"/></clipPath></defs>
-  <rect width="1200" height="360" fill="url(#${sky})"/>
-  <g class="hero-sun" clip-path="url(#${sunClip})">
-    <circle cx="975" cy="150" r="112" fill="var(--sun)"/>
-    <path d="M863 150 A112 112 0 0 0 1087 150 Z" fill="var(--ember)" opacity="0.5"/>
-    <rect x="845" y="160" width="270" height="5" fill="var(--sky-bottom)"/>
-    <rect x="845" y="178" width="270" height="8" fill="var(--sky-bottom)"/>
-    <rect x="845" y="199" width="270" height="11" fill="var(--sky-bottom)"/>
-    <rect x="845" y="223" width="270" height="15" fill="var(--sky-bottom)"/>
-  </g>
-  <path fill="var(--ridge-far)" d="M0 238 L70 214 L140 226 L230 176 L300 204 L380 160 L450 198 L520 182 L600 214 L690 170 L760 196 L850 150 L930 196 L1010 176 L1090 206 L1200 184 L1200 360 L0 360Z"/>
-  <path fill="var(--ridge-mid)" d="M0 268 L90 236 L170 256 L260 214 L330 244 L420 222 L500 252 L590 228 L680 262 L760 232 L850 258 L940 220 L1030 252 L1110 236 L1200 254 L1200 360 L0 360Z"/>
-  <path fill="var(--ridge-near)" d="M0 300 L120 276 L230 292 L340 268 L470 296 L590 278 L700 300 L820 280 L940 298 L1060 282 L1200 296 L1200 360 L0 360Z"/>
-  <g fill="var(--ridge-trees)">${trees}</g>
-  <rect y="322" width="1200" height="38" fill="var(--ridge-trees)"/>
-</svg>`;
+/* ---------- Topographic contours ---------- */
+
+export interface TopoOpts {
+  /** Same seed → same terrain on every render. */
+  seed: number;
+  /** Contour interval in height units; larger = sparser lines. */
+  step?: number;
+  /** Every Nth line is a heavier "index" contour (0 = none). */
+  index?: number;
 }
 
-/** Thin 80s triple stripe (mustard / ember / rust). */
-export const stripes = (): string =>
-  '<div class="stripes" aria-hidden="true"><span></span><span></span><span></span></div>';
+/** Placeholder layer; `paintTopo` fills it once it has a size in the DOM. */
+export function topo({ seed, step = 0.06, index = 5 }: TopoOpts): SVGSVGElement {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'topo');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.dataset.seed = String(seed);
+  svg.dataset.step = String(step);
+  svg.dataset.index = String(index);
+  return svg;
+}
+
+function rng(seed: number): () => number {
+  let s = seed | 0;
+  return () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Seeded height field (gaussian peaks + a gentle swell) traced with d3-contour. */
+function draw(svg: SVGSVGElement): void {
+  const box = svg.getBoundingClientRect();
+  if (!box.width || !box.height) return;
+  const W = box.width, H = box.height, cell = 5;
+  const gw = Math.ceil(W / cell) + 1, gh = Math.ceil(H / cell) + 1;
+  const rand = rng(Number(svg.dataset.seed) || 1);
+  const span = Math.max(gw, gh);
+  const peaks = d3.range(9).map(() => ({ x: rand() * gw, y: rand() * gh, a: 0.5 + rand(), s: (0.12 + rand() * 0.22) * span }));
+  const ph = rand() * 6;
+  const v = new Float64Array(gw * gh);
+  for (let j = 0; j < gh; j++) {
+    for (let i = 0; i < gw; i++) {
+      let z = 0.18 * Math.sin(i / 23 + ph) * Math.cos(j / 31 - ph);
+      for (const p of peaks) {
+        const dx = i - p.x, dy = j - p.y;
+        z += p.a * Math.exp(-(dx * dx + dy * dy) / (2 * p.s * p.s));
+      }
+      v[j * gw + i] = z;
+    }
+  }
+  const step = Number(svg.dataset.step) || 0.06;
+  const idx = Number(svg.dataset.index) || 0;
+  const [lo, hi] = d3.extent(v) as [number, number];
+  const path = d3.geoPath(d3.geoIdentity().scale(cell));
+  const lines = d3.contours().size([gw, gh]).thresholds(d3.range(Math.ceil(lo / step) * step, hi, step))(Array.from(v));
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid slice');
+  svg.innerHTML = lines.map((c, k) => `<path${idx && k % idx === 0 ? ' class="idx"' : ''} d="${path(c)}"/>`).join('');
+  svg.dataset.w = String(Math.round(W));
+}
+
+/** Draw every topo layer under `root` that is new or has changed width. */
+export function paintTopo(root: ParentNode = document): void {
+  root.querySelectorAll<SVGSVGElement>('svg.topo').forEach((svg) => {
+    const w = Math.round(svg.getBoundingClientRect().width);
+    if (svg.dataset.w !== String(w)) draw(svg);
+  });
+}
+
+/** Two wavy lines used as a section break. */
+export function contourRule(): SVGSVGElement {
+  const tpl = document.createElement('template');
+  tpl.innerHTML = `<svg class="contour-rule" viewBox="0 0 1200 16" preserveAspectRatio="none" aria-hidden="true">
+  <path d="M0 7 C 120 1, 240 13, 360 7 S 600 1, 720 7 S 960 13, 1080 7 S 1200 3, 1200 7"/>
+  <path d="M0 12 C 140 7, 260 16, 380 12 S 620 6, 740 12 S 980 16, 1100 12 S 1200 9, 1200 11"/></svg>`;
+  return tpl.content.firstElementChild as SVGSVGElement;
+}
