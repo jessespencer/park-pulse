@@ -92,6 +92,12 @@ function syncHeaderHeight(): void {
 }
 addEventListener('resize', syncHeaderHeight);
 
+/* Header gets a raised, solid state once the page scrolls under it. */
+const header = document.querySelector<HTMLElement>('.site-header')!;
+const syncScrolled = () => header.classList.toggle('scrolled', scrollY > 4);
+addEventListener('scroll', syncScrolled, { passive: true });
+syncScrolled();
+
 /* Re-render on width changes (charts are sized to their container). */
 let lastW = innerWidth;
 let resizeTimer = 0;

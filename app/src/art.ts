@@ -144,3 +144,59 @@ export function contourRule(): SVGSVGElement {
   <path d="M0 12 C 140 7, 260 16, 380 12 S 620 6, 740 12 S 980 16, 1100 12 S 1200 9, 1200 11"/></svg>`;
   return tpl.content.firstElementChild as SVGSVGElement;
 }
+
+/* ---------- Tile scenes ----------
+ * Flat, layered ridgeline illustrations for the home tiles, so they read as
+ * a different object from the topographic hero. Colors come from CSS custom
+ * properties scoped on each tile (see .tile-1 / .tile-2 in style.css).
+ */
+
+/** Smooth ridgeline closed to the bottom of a 600×240 scene. */
+function ridge(seed: number, base: number, amp: number, step = 60): string {
+  const r = rng(seed);
+  const pts: [number, number][] = d3.range(-step, 600 + step * 2, step).map((x) => [x, base - r() * amp]);
+  const line = d3.line<[number, number]>().curve(d3.curveCatmullRom.alpha(0.5))(pts)!;
+  return `${line}L${600 + step * 2},260L${-step},260Z`;
+}
+
+/** Pine triangles standing on a ridge, placed between x0 and x1. */
+function pines(seed: number, x0: number, x1: number, base: number, n: number): string {
+  const r = rng(seed);
+  return d3.range(n).map(() => {
+    const x = x0 + r() * (x1 - x0), h = 14 + r() * 16, y = base + r() * 10;
+    return `M${x.toFixed(1)} ${(y - h).toFixed(1)}L${(x + h * 0.32).toFixed(1)} ${y.toFixed(1)}L${(x - h * 0.32).toFixed(1)} ${y.toFixed(1)}Z`;
+  }).join('');
+}
+
+export function tileScene(kind: 'quiet' | 'summer'): string {
+  const sky = `sky-${kind}-${Math.random().toString(36).slice(2, 7)}`;
+  const defs = `<defs><linearGradient id="${sky}" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="var(--sky-a)"/><stop offset="1" stop-color="var(--sky-b)"/></linearGradient>`;
+  const hills = (s: number) => `
+    <path d="${ridge(s, 150, 46)}" fill="var(--ridge-1)"/>
+    <path d="${ridge(s + 1, 182, 30)}" fill="var(--ridge-2)"/>
+    <path d="${ridge(s + 2, 214, 18, 80)}" fill="var(--ridge-3)"/>
+    <path d="${pines(s + 3, 300, 600, 214, 16)}" fill="var(--ridge-3)"/>`;
+
+  if (kind === 'quiet') {
+    const r = rng(11);
+    const stars = d3.range(46).map(() =>
+      `<circle cx="${(r() * 600).toFixed(1)}" cy="${(r() * 130).toFixed(1)}" r="${(0.6 + r() * 1.1).toFixed(2)}" opacity="${(0.35 + r() * 0.6).toFixed(2)}"/>`).join('');
+    const moon = `moon-${sky}`;
+    return `<svg class="tile-art" viewBox="0 0 600 240" preserveAspectRatio="xMaxYMax slice" aria-hidden="true">${defs}
+    <mask id="${moon}"><rect width="600" height="240" fill="#fff"/><circle cx="542" cy="52" r="22" fill="#000"/></mask></defs>
+    <rect width="600" height="240" fill="url(#${sky})"/>
+    <g fill="var(--star)">${stars}</g>
+    <circle cx="530" cy="62" r="40" fill="var(--glow)" opacity="0.12"/>
+    <circle cx="530" cy="62" r="24" fill="var(--moon)" mask="url(#${moon})"/>
+    ${hills(21)}</svg>`;
+  }
+  // Summer: a short solid sun path and a longer dashed one — the season stretching.
+  return `<svg class="tile-art" viewBox="0 0 600 240" preserveAspectRatio="xMaxYMax slice" aria-hidden="true">${defs}</defs>
+    <rect width="600" height="240" fill="url(#${sky})"/>
+    <path d="M330 190 Q 525 -30 720 190" fill="none" stroke="var(--arc)" stroke-width="2" stroke-dasharray="6 7" stroke-linecap="round"/>
+    <path d="M410 190 Q 525 40 640 190" fill="none" stroke="var(--arc)" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="525" cy="104" r="44" fill="var(--glow)" opacity="0.16"/>
+    <circle cx="525" cy="104" r="28" fill="var(--sun-disc)"/>
+    ${hills(57)}</svg>`;
+}

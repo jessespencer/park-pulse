@@ -1,5 +1,5 @@
 import * as d3 from 'd3';
-import { topo } from '../art';
+import { tileScene, topo } from '../art';
 import { MONTHS_LONG, fmtPct, isNationalPark, loadIndex, type ParkSummary } from '../data';
 import { OFF_SEASON, miniFingerprint } from '../insights';
 import { setState, type View } from '../state';
@@ -41,12 +41,15 @@ export async function renderHome(root: HTMLElement): Promise<void> {
     }, 'Explore'));
   hero.lastElementChild!.insertAdjacentHTML('beforeend', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>');
 
-  const tile = (cls: string, seed: number, eyebrow: string, title: string, cta: string, onclick: () => void) =>
-    h('button', { type: 'button', class: `tile ${cls}`, onclick },
-      topo({ seed, scale: 420, levels: 20 }),
+  const tile = (cls: string, scene: 'quiet' | 'summer', eyebrow: string, title: string, cta: string, onclick: () => void) => {
+    const art = h('span', { class: 'tile-scene' });
+    art.innerHTML = tileScene(scene);
+    return h('button', { type: 'button', class: `tile ${cls}`, onclick },
+      art,
       h('span', { class: 'eyebrow' }, eyebrow),
       h('span', { class: 'tile-title' }, title),
       h('span', { class: 'tile-go' }, cta));
+  };
 
   const monthCol = (title: string, sub: string, parks: ParkSummary[]) =>
     h('div', { class: 'now-col panel' },
@@ -63,8 +66,8 @@ export async function renderHome(root: HTMLElement): Promise<void> {
   fill(root,
     hero,
     h('div', { class: 'tiles' },
-      tile('tile-1', 31, 'When to go', `Quiet parks this ${MONTHS_LONG[now]}`, 'See the list →', () => setState({ view: 'when', month: now + 1 })),
-      tile('tile-2', 41, 'Season drift', 'Has summer gotten longer?', 'See it decade by decade →', () => setState({ view: 'drift' }))),
+      tile('tile-1', 'quiet', 'When to go', `Quiet parks this ${MONTHS_LONG[now]}`, 'See the list →', () => setState({ view: 'when', month: now + 1 })),
+      tile('tile-2', 'summer', 'Season drift', 'Has summer gotten longer?', 'See it decade by decade →', () => setState({ view: 'drift' }))),
     h('section', { class: 'section' },
       h('header', { class: 'section-head' },
         h('p', { class: 'eyebrow' }, 'Field report'),
@@ -84,13 +87,5 @@ export async function renderHome(root: HTMLElement): Promise<void> {
           icon, h('span', { class: 'tool-title' }, t.title), h('span', { class: 'tool-blurb' }, t.blurb),
           h('span', { class: 'tool-go' }, 'Go →'));
       }))),
-    h('section', { class: 'section how' },
-      h('header', { class: 'section-head' },
-        h('p', { class: 'eyebrow' }, 'Reading the signs'),
-        h('h2', { class: 'section-title' }, 'Three ways to color a year')),
-      h('div', { class: 'how-grid' },
-        h('div', { class: 'how-item' }, h('h3', {}, 'Visits'), h('p', {}, 'Raw monthly count. Best for seeing growth and the 2020 closures.')),
-        h('div', { class: 'how-item' }, h('h3', {}, 'Share of year'), h('p', {}, 'How much of a year’s traffic one month carries. Fair across park sizes — this is what “When to go” ranks by.')),
-        h('div', { class: 'how-item' }, h('h3', {}, 'Index vs normal'), h('p', {}, '100 = that park’s typical level for the month (1979–2019 median). Teal is quieter than usual, rust is busier.')))),
   );
 }

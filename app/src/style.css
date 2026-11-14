@@ -40,8 +40,6 @@
   --sign-line: rgb(241 236 223 / 0.2);
   --sign-grid: rgb(241 236 223 / 0.3);
 
-  --tile-1a: #8FA99A; --tile-1b: #1F3D2F;
-  --tile-2a: #A9B98A; --tile-2b: #2F5D45;
 
   --annot: #8A6A1E;
   --annot-covid: #8E2C48;
@@ -71,7 +69,6 @@
     --bar: #3E5647; --bar-peak: #A6CC93; --grid: #1A2520;
     --contour: #283A31; --contour-idx: #3A5245; --contour-grid: #3A5446; --finder-dim: var(--surface); --finder-lift: #2B3B33;
     --sign-bg: #1F3D2F; --sign-ink: #EEE8D8; --sign-muted: #A9C2A6; --sign-line: rgb(238 232 216 / 0.17); --sign-grid: rgb(238 232 216 / 0.26);
-    --tile-1a: #3A5A48; --tile-1b: #15291F; --tile-2a: #4F6236; --tile-2b: #1F3D2F;
     --annot: #E0C070; --annot-covid: #F07A9A; --annot-data: #B3A6F0; --highlight: #FFFFFF;
     --warn-bg: #3A2A10; --warn-text: #FCD9A0; --tag-ink: #0B110E;
     --shadow: 0 12px 30px -14px rgb(0 0 0 / 0.75); --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
@@ -85,7 +82,6 @@
   --bar: #3E5647; --bar-peak: #A6CC93; --grid: #1A2520;
   --contour: #283A31; --contour-idx: #3A5245; --contour-grid: #3A5446; --finder-dim: var(--surface); --finder-lift: #2B3B33;
   --sign-bg: #1F3D2F; --sign-ink: #EEE8D8; --sign-muted: #A9C2A6; --sign-line: rgb(238 232 216 / 0.17); --sign-grid: rgb(238 232 216 / 0.26);
-  --tile-1a: #3A5A48; --tile-1b: #15291F; --tile-2a: #4F6236; --tile-2b: #1F3D2F;
   --annot: #E0C070; --annot-covid: #F07A9A; --annot-data: #B3A6F0; --highlight: #FFFFFF;
   --warn-bg: #3A2A10; --warn-text: #FCD9A0; --tag-ink: #0B110E;
   --shadow: 0 12px 30px -14px rgb(0 0 0 / 0.75); --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
@@ -136,8 +132,13 @@ svg.topo path.grid { stroke: var(--topo-grid, var(--contour-grid)); stroke-width
 /* ---------- Header ---------- */
 .site-header {
   position: sticky; top: 0; z-index: 20;
-  background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border);
+  background: var(--bg); border-bottom: 1px solid var(--border);
+  transition: background-color 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+/* Once the page scrolls, lift the header off the content beneath it. */
+body .site-header.scrolled {
+  background: var(--surface); border-bottom-color: var(--border);
+  box-shadow: 0 1px 0 var(--border), 0 10px 24px -14px rgb(0 0 0 / 0.35);
 }
 body[data-view="home"] .site-header { border-bottom-color: transparent; }
 .header-inner {
@@ -383,13 +384,25 @@ main { min-height: 60vh; }
   transition: transform 0.15s;
 }
 .tile:hover { transform: translateY(-2px); }
-.tile { --topo-line: rgb(255 255 255 / 0.3); }
-.tile > :not(svg) { position: relative; z-index: 1; }
+.tile-scene { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.tile-scene svg { display: block; width: 100%; height: 100%; }
+/* Scene palettes: Quiet = night ridgeline, Summer = long day. Text sits on the left, art fills the right. */
+.tile-1 {
+  --sky-a: #13271E; --sky-b: #2B4F3E; --star: #E8EFD9; --moon: #F1ECDF; --glow: #F1ECDF;
+  --ridge-1: #315A47; --ridge-2: #234536; --ridge-3: #142A20;
+}
+.tile-2 {
+  --sky-a: #6F8F5A; --sky-b: #A4B884; --sun-disc: #F4E6BE; --glow: #FFF6D8; --arc: rgb(255 250 235 / 0.7);
+  --ridge-1: #5E7F4C; --ridge-2: #3E6447; --ridge-3: #1F3D2F;
+}
+.tile::after { /* keep the copy legible over the art */
+  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: linear-gradient(90deg, rgb(10 22 16 / 0.55) 0%, rgb(10 22 16 / 0.25) 45%, transparent 70%);
+}
+.tile > :not(svg, .tile-scene) { position: relative; z-index: 1; }
 .tile .eyebrow { color: rgb(255 255 255 / 0.78); margin: 0; }
 .tile-title { font: 400 2.15rem/1 var(--font-display); margin: 0.35rem 0 1rem; max-width: 18ch; }
 .tile-go { background: #fff; color: #1D2420; border-radius: 999px; padding: 0.45rem 0.95rem; font-size: 0.84rem; font-weight: 600; }
-.tile-1 { background: linear-gradient(180deg, var(--tile-1a), var(--tile-1b)); }
-.tile-2 { background: linear-gradient(180deg, var(--tile-2a), var(--tile-2b)); }
 
 .section-head { margin-bottom: 1.25rem; max-width: 46rem; }
 .section-head p.muted { margin: 0.4rem 0 0; }
@@ -420,10 +433,6 @@ main { min-height: 60vh; }
 .tool-blurb { color: var(--muted); font-size: 0.88rem; }
 .tool-go { margin-top: auto; padding-top: 0.5rem; font-weight: 600; font-size: 0.85rem; color: var(--accent); }
 
-.how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.75rem; }
-.how-item { border-left: 2px solid var(--bar-peak); padding-left: 1rem; }
-.how-item h3 { font-size: 1.5rem; }
-.how-item p { margin: 0.3rem 0 0; color: var(--muted); }
 
 /* ---------- Page heads ---------- */
 .page-head { margin-bottom: 1.25rem; }
@@ -627,7 +636,7 @@ footer a:hover { color: var(--sign-ink); }
   .pop-park, .pop-scope { padding-inline: 0.5rem; }
   .region-grid { grid-template-columns: repeat(2, 1fr); }
   .season { grid-template-columns: 3.6rem repeat(3, 1fr); }
-  .tiles, .now-grid, .how-grid, .when-layout, .compare { grid-template-columns: 1fr; }
+  .tiles, .now-grid, .when-layout, .compare { grid-template-columns: 1fr; }
   .tile { min-height: 190px; }
   .when-map { position: static; order: -1; }
   .now-list li { grid-template-columns: auto minmax(0, 1fr) 64px 3rem; gap: 0.5rem; }
