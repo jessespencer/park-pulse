@@ -1,10 +1,10 @@
 import * as d3 from 'd3';
 import { topo } from '../art';
-import { MONTHS_LONG, REGIONS, fmtPct, isNationalPark, loadIndex, type ParkSummary } from '../data';
+import { MONTHS_LONG, fmtPct, isNationalPark, loadIndex, type ParkSummary } from '../data';
 import { OFF_SEASON, miniFingerprint } from '../insights';
-import { bindSearch, findPark } from '../search';
 import { setState, type View } from '../state';
 import { fill, h } from '../ui';
+import { renderFinder } from './finder';
 
 const TOOLS: { view: View; title: string; blurb: string; icon: string }[] = [
   { view: 'when', title: 'When to go', blurb: 'Pick a month, get the quietest parks — ranked fairly, big or small.', icon: 'M4 6h16v14H4zM4 10h16M8 3v5M16 3v5M9 14h2v2H9z' },
@@ -14,7 +14,6 @@ const TOOLS: { view: View; title: string; blurb: string; icon: string }[] = [
   { view: 'compare', title: 'Compare', blurb: 'Two parks side by side, hover linked month to month.', icon: 'M4 5h7v14H4zM13 5h7v14h-7z' },
 ];
 
-const SEARCH_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>';
 
 export async function renderHome(root: HTMLElement): Promise<void> {
   const idx = await loadIndex();
@@ -27,28 +26,7 @@ export async function renderHome(root: HTMLElement): Promise<void> {
   const yMax = d3.quantile(pool.map((p) => d3.max(p.profile!)!).sort(d3.ascending), 0.95) ?? 0.25;
   const lastYear = d3.max(idx.parks, (p) => p.lastYear);
 
-  /* Finder: one pill, four fields. A park name jumps to that park; otherwise
-     the month / region / type become a "When to go" query. */
-  const parkInput = h('input', { type: 'search', list: 'park-list', placeholder: 'Any park', 'aria-label': 'Park', autocomplete: 'off' });
-  bindSearch(parkInput, idx);
-  const monthSel = h('select', { 'aria-label': 'Month' },
-    ...MONTHS_LONG.map((m, i) => h('option', { value: String(i + 1), selected: i === now }, m)));
-  const regionSel = h('select', { 'aria-label': 'Region' },
-    h('option', { value: '' }, 'Anywhere'), ...Object.keys(REGIONS).map((r) => h('option', { value: r }, r)));
-  const scopeSel = h('select', { 'aria-label': 'Type' },
-    h('option', { value: 'np' }, 'National parks'), h('option', { value: 'all' }, 'All park units'));
-  const field = (label: string, control: HTMLElement) => h('label', { class: 'finder-field' }, h('span', {}, label), control);
-  const go = h('button', { type: 'submit', class: 'finder-go', 'aria-label': 'Find quiet parks' });
-  go.innerHTML = SEARCH_ICON;
-  const finder = h('form', {
-    class: 'finder', role: 'search',
-    onsubmit: (e: Event) => {
-      e.preventDefault();
-      const code = parkInput.value.trim() ? findPark(idx, parkInput.value) : null;
-      if (code) { setState({ view: 'park', park: code }); return; }
-      setState({ view: 'when', month: Number(monthSel.value), region: regionSel.value, st: '', scope: scopeSel.value === 'all' ? 'all' : 'np' });
-    },
-  }, field('Park', parkInput), field('Month', monthSel), field('Region', regionSel), field('Type', scopeSel), go);
+  const finder = renderFinder(idx, { now, suggested: quiet });
 
   const hero = h('section', { class: 'hero' },
     topo({ seed: 7, scale: 560, levels: 26, grid: 240 }),
@@ -56,7 +34,12 @@ export async function renderHome(root: HTMLElement): Promise<void> {
       h('h1', { class: 'display' }, 'Beat the crowds at ', h('em', {}, 'America’s'), ' national parks'),
       h('p', { class: 'lede' },
         `${lastYear! - 1979 + 1} years of monthly visits. See each park’s busy season, how it’s shifted, and which parks are quiet when you want to go.`),
-      finder));
+      finder),
+    h('button', {
+      type: 'button', class: 'hero-cue', 'aria-label': 'Scroll to explore',
+      onclick: () => hero.nextElementSibling?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+    }, 'Explore'));
+  hero.lastElementChild!.insertAdjacentHTML('beforeend', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>');
 
   const tile = (cls: string, seed: number, eyebrow: string, title: string, cta: string, onclick: () => void) =>
     h('button', { type: 'button', class: `tile ${cls}`, onclick },
