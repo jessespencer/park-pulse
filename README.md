@@ -3,7 +3,7 @@
 An interactive, static web app showing the monthly rhythm of recreation visits
 across the National Park System as calendar heatmaps, 1979–2025.
 
-**Live:** <https://jessedestroys.com/park-pulse/>
+**Live:** <https://jessespencer.dev/park-pulse/>
 
 **Views**
 
@@ -42,7 +42,7 @@ the metadata is fetched.
 
 ## Deploy
 
-Every push to `main` deploys to GitHub Pages through `.github/workflows/deploy.yml`. The workflow builds `app/` and publishes `app/dist`. The site is served as a project site under the user site's custom domain, at `https://jessedestroys.com/park-pulse/`, so `base` in `app/vite.config.ts` must stay `/park-pulse/`. The generated data in `app/public/data/` is committed, so CI never runs the Python pipeline or needs an API key. After rebuilding the data locally, commit it to publish.
+Every push to `main` deploys to GitHub Pages through `.github/workflows/deploy.yml`. The workflow builds `app/` and publishes `app/dist`. The site is served as a project site under the user site's custom domain, at `https://jessespencer.dev/park-pulse/`, so `base` in `app/vite.config.ts` must stay `/park-pulse/`. The generated data in `app/public/data/` is committed, so CI never runs the Python pipeline or needs an API key. After rebuilding the data locally, commit it to publish.
 
 ## Sources
 
