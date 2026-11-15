@@ -55,10 +55,11 @@ export interface FinderOpts {
   initial?: FinderValues;
   /** Prefix for element ids, so two finders (hero + header) can coexist. */
   uid?: string;
-  /** Called after a search navigates (the header dock collapses on it). */
+  /** Called after a search navigates. */
   onSubmit?: () => void;
-  /** Clicks on the compact layout (header pill): which part was clicked. */
-  onCompact?: (id: PanelId) => void;
+  /** The small header pill: park, month and region in one row, each opening its own picker
+   *  anchored under it. Otherwise the full four-part bar. */
+  compact?: boolean;
 }
 
 export interface FinderHandle {
@@ -74,7 +75,7 @@ export interface FinderHandle {
 
 export type { PanelId };
 
-export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onSubmit, onCompact }: FinderOpts): FinderHandle {
+export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onSubmit, compact = false }: FinderOpts): FinderHandle {
   const byCode = new Map(idx.parks.map((p) => [p.code, p]));
   const sel = { park: null as ParkSummary | null, month: now, region: '', scope: 'np' as 'np' | 'all' };
   const npCount = idx.parks.filter(isNationalPark).length;
@@ -82,7 +83,7 @@ export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onS
 
   /* ---------- segments ---------- */
   const parkInput = h('input', {
-    type: 'text', placeholder: 'Search parks', autocomplete: 'off', spellcheck: 'false',
+    type: 'text', placeholder: compact ? 'Any park' : 'Search parks', autocomplete: 'off', spellcheck: 'false',
     role: 'combobox', 'aria-autocomplete': 'list', 'aria-expanded': 'false', 'aria-controls': `${uid}-pop-park`, 'aria-label': 'Park',
   });
   const clearBtn = h('button', { type: 'button', class: 'finder-clear', 'aria-label': 'Clear park', hidden: true });
@@ -96,18 +97,26 @@ export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onS
     h('button', { type: 'button', class: 'finder-seg', 'data-seg': id, 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-controls': `${uid}-pop-${id}` },
       h('span', { class: 'seg-label' }, label), value);
 
-  const parkSeg = h('div', { class: 'finder-seg seg-park', 'data-seg': 'park' },
-    h('label', { class: 'seg-label', for: `${uid}-park` }, 'Park'), parkInput, clearBtn);
+  let parkSeg: HTMLElement;
+  let segs: Record<PanelId, HTMLElement>;
+  let go: HTMLElement;
+  if (compact) {
+    // Header pill: values only, one picker per part, each anchored under it.
+    const cSeg = (id: PanelId, value: HTMLElement) =>
+      h('button', { type: 'button', class: `sbar-seg sbar-${id}`, 'data-seg': id, 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-controls': `${uid}-pop-${id}`, 'aria-label': id === 'month' ? 'Month' : 'Region' }, value);
+    parkSeg = h('div', { class: 'sbar-seg sbar-park', 'data-seg': 'park' }, parkInput);
+    parkSeg.insertAdjacentHTML('afterbegin', ICON.mountain.replace('class="ic"', 'class="sbar-ic"'));
+    go = h('button', { type: 'submit', class: 'sbar-go', 'aria-label': 'Search' });
+    go.innerHTML = ICON.search.replace('ic-search', 'sbar-search');
+    segs = { park: parkSeg, month: cSeg('month', monthVal), region: cSeg('region', regionVal), scope: go };
+  } else {
+    parkSeg = h('div', { class: 'finder-seg seg-park', 'data-seg': 'park' },
+      h('label', { class: 'seg-label', for: `${uid}-park` }, 'Park'), parkInput, clearBtn);
+    segs = { park: parkSeg, month: seg('month', 'Month', monthVal), region: seg('region', 'Region', regionVal), scope: seg('scope', 'Type', scopeVal) };
+    go = h('button', { type: 'submit', class: 'finder-go', 'aria-label': 'Search' });
+    go.innerHTML = `${ICON.search}<span>Search</span>`;
+  }
   parkInput.id = `${uid}-park`;
-  const segs: Record<PanelId, HTMLElement> = {
-    park: parkSeg,
-    month: seg('month', 'Month', monthVal),
-    region: seg('region', 'Region', regionVal),
-    scope: seg('scope', 'Type', scopeVal),
-  };
-
-  const go = h('button', { type: 'submit', class: 'finder-go', 'aria-label': 'Search' });
-  go.innerHTML = `${ICON.search}<span>Search</span>`;
 
   /* ---------- popovers ---------- */
   const pops: Record<PanelId, HTMLElement> = {
@@ -118,23 +127,11 @@ export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onS
   };
   Object.values(pops).forEach((p) => (p.hidden = true));
 
-  /* Compact layout of the same bar (header pill): values only. The bar element itself morphs
-     between the two layouts (dock.ts); this layer crossfades with the full one. */
-  const cVal = { park: h('span', { class: 'sbar-val' }), month: h('span', { class: 'sbar-val' }), region: h('span', { class: 'sbar-val' }) };
-  const cBtn = (id: PanelId, val: HTMLElement, icon = '') => {
-    const b = h('button', { type: 'button', class: `sbar-seg sbar-${id}`, onclick: () => onCompact?.(id) }, val);
-    if (icon) b.insertAdjacentHTML('afterbegin', icon.replace('class="ic"', 'class="sbar-ic"'));
-    return b;
-  };
-  const cGo = h('button', { type: 'button', class: 'sbar-go', 'aria-label': 'Search parks', onclick: () => onCompact?.('park') });
-  cGo.innerHTML = ICON.search.replace('ic-search', 'sbar-search');
-  const compact = h('div', { class: 'sbar-compact' },
-    cBtn('park', cVal.park, ICON.mountain), h('span', { class: 'sbar-sep', 'aria-hidden': 'true' }),
-    cBtn('month', cVal.month), h('span', { class: 'sbar-sep sbar-sep-region', 'aria-hidden': 'true' }),
-    cBtn('region', cVal.region), cGo);
-  const full = h('div', { class: 'sbar-full' }, segs.park, segs.month, segs.region, segs.scope, go);
-  const bar = h('div', { class: 'finder-bar' }, full, compact);
-  const form = h('form', { class: 'finder', role: 'search', onsubmit: (e: Event) => { e.preventDefault(); submit(); } },
+  const bar = compact
+    ? h('div', { class: 'finder-bar' }, segs.park, h('span', { class: 'sbar-sep', 'aria-hidden': 'true' }),
+      segs.month, h('span', { class: 'sbar-sep sbar-sep-region', 'aria-hidden': 'true' }), segs.region, go)
+    : h('div', { class: 'finder-bar' }, segs.park, segs.month, segs.region, segs.scope, go);
+  const form = h('form', { class: compact ? 'finder is-compact' : 'finder', role: 'search', onsubmit: (e: Event) => { e.preventDefault(); submit(); } },
     bar, ...Object.values(pops));
 
   /* ---------- park list (combobox) ---------- */
@@ -211,7 +208,7 @@ export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onS
         }, MONTHS_LONG[m].slice(0, 3), m === now ? h('i', { 'aria-hidden': 'true' }) : null))))),
     );
   }
-  function pickMonth(m: number): void { sel.month = m; syncValues(); setOpen('region'); }
+  function pickMonth(m: number): void { sel.month = m; syncValues(); if (compact) { setOpen(null); go.focus(); } else setOpen('region'); }
 
   /* ---------- region cards with mini maps ---------- */
   function renderRegion(): void {
@@ -220,7 +217,7 @@ export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onS
       art.innerHTML = r === 'Territories' ? ICON.island : regionMap(r);
       return h('button', {
         type: 'button', class: `region-card${sel.region === r ? ' on' : ''}`, 'aria-pressed': String(sel.region === r),
-        onclick: () => { sel.region = r; syncValues(); setOpen('scope'); },
+        onclick: () => { sel.region = r; syncValues(); if (compact) { setOpen(null); go.focus(); } else setOpen('scope'); },
       }, art, h('span', { class: 'region-name' }, title), h('span', { class: 'region-note' }, note));
     };
     pops.region.replaceChildren(
@@ -253,9 +250,6 @@ export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onS
     monthVal.textContent = MONTHS_LONG[sel.month];
     regionVal.textContent = sel.region || 'Anywhere';
     scopeVal.textContent = sel.scope === 'np' ? 'National parks' : 'All park units';
-    cVal.park.textContent = sel.park ? label(sel.park) : 'Any park';
-    cVal.month.textContent = MONTHS_LONG[sel.month];
-    cVal.region.textContent = sel.region || 'Anywhere';
   }
 
   function setOpen(id: PanelId | null): void {
@@ -264,6 +258,7 @@ export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onS
     (Object.keys(pops) as PanelId[]).forEach((k) => {
       const on = k === id;
       pops[k].hidden = !on;
+      if (compact && k === 'scope') return; // the pill has no Type part (its slot is the search button)
       segs[k].classList.toggle('active', on);
       (k === 'park' ? parkInput : segs[k]).setAttribute('aria-expanded', String(on));
     });
@@ -273,17 +268,24 @@ export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onS
     if (id === 'park' && document.activeElement !== parkInput) parkInput.focus();
   }
 
-  /** Align a popover under its segment, kept inside the bar's width. */
+  /** Align a popover under its segment: inside the bar's width for the full bar; for the
+   *  small pill, centered on the part clicked and kept inside the window. */
   function place(pop: HTMLElement, anchor: HTMLElement): void {
     if (matchMedia('(max-width: 760px)').matches) { pop.style.left = ''; return; }
+    if (compact) {
+      const f = form.getBoundingClientRect(), a = anchor.getBoundingClientRect(), w = pop.offsetWidth;
+      const left = Math.max(12, Math.min(innerWidth - w - 12, a.left + a.width / 2 - w / 2));
+      pop.style.left = `${left - f.left}px`;
+      return;
+    }
     const W = form.clientWidth, w = pop.offsetWidth;
     const want = anchor.offsetLeft + anchor.offsetWidth / 2 - w / 2;
     pop.style.left = `${Math.max(0, Math.min(W - w, want))}px`;
   }
 
-  (['month', 'region', 'scope'] as PanelId[]).forEach((k) =>
+  (compact ? ['month', 'region'] as PanelId[] : ['month', 'region', 'scope'] as PanelId[]).forEach((k) =>
     segs[k].addEventListener('click', () => setOpen(open === k ? null : k)));
-  parkSeg.addEventListener('click', (e) => { if (e.target !== clearBtn && !clearBtn.contains(e.target as Node)) parkInput.focus(); });
+  parkSeg.addEventListener('click', (e) => { if (e.target !== parkInput && e.target !== clearBtn && !clearBtn.contains(e.target as Node)) parkInput.focus(); });
 
   const onDocDown = (e: PointerEvent) => {
     if (!form.isConnected) { document.removeEventListener('pointerdown', onDocDown); document.removeEventListener('keydown', onKey); return; }
