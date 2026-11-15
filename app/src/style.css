@@ -64,6 +64,7 @@
   --font-ui: 'Public Sans Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --radius: 18px;
   --header-h: 68px;
+  --ctl-h: 42px;                /* shared height: picker fields, segmented controls, chips */
   color-scheme: light;
 }
 
@@ -189,16 +190,11 @@ main { min-height: 60vh; }
 }
 .btn:hover { color: var(--btn-ink); filter: brightness(1.08); }
 
-.controls { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; align-items: center; margin: 0.75rem 0; }
-.field { display: inline-flex; flex-direction: column; gap: 0.25rem; font-size: 0.75rem; color: var(--muted); font-weight: 500; }
-.field select {
-  padding: 0.5rem 2rem 0.5rem 0.85rem; border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
-  max-width: 22rem; font-size: 0.92rem; font-weight: 500; color: var(--ink); box-shadow: var(--shadow-sm);
-}
+.controls { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; align-items: flex-start; margin: 0.75rem 0; }
 
-.segmented { position: relative; display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); }
+.segmented { position: relative; display: inline-flex; align-items: stretch; height: var(--ctl-h); gap: 2px; padding: 3px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); }
 .segmented button {
-  position: relative; z-index: 1; background: transparent; border: 0; padding: 0.38rem 0.9rem; border-radius: 999px;
+  position: relative; z-index: 1; background: transparent; border: 0; padding: 0 0.95rem; border-radius: 999px;
   cursor: pointer; font-weight: 500; font-size: 0.86rem; color: var(--muted); transition: color var(--dur-2) var(--ease-out);
 }
 .segmented button:hover { color: var(--ink); }
@@ -230,14 +226,15 @@ main { min-height: 60vh; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 0.45rem; }
 .chip {
-  border: 1px solid var(--border); background: var(--surface); border-radius: 999px;
-  padding: 0.38rem 0.9rem; cursor: pointer; font-size: 0.86rem; font-weight: 500;
+  display: inline-flex; align-items: center; height: var(--ctl-h); border: 1px solid var(--border); background: var(--surface); border-radius: 999px;
+  padding: 0 1rem; cursor: pointer; font-size: 0.86rem; font-weight: 500;
 }
 .chip:hover { border-color: var(--border-strong); }
 .chip.active { background: var(--btn-bg); border-color: var(--btn-bg); color: var(--btn-ink); }
 .chip-link {
-  font-size: 0.86rem; font-weight: 600; text-decoration: none; padding: 0.45rem 0.95rem; border-radius: 999px;
-  border: 1px solid var(--border); color: var(--ink); background: var(--surface); align-self: flex-end;
+  display: inline-flex; align-items: center; height: var(--ctl-h); padding: 0 1.05rem;
+  font-size: 0.86rem; font-weight: 600; text-decoration: none; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--ink); background: var(--surface); box-shadow: var(--shadow-sm);
 }
 .chip-link:hover { border-color: var(--border-strong); color: var(--accent); }
 
@@ -355,27 +352,46 @@ main { min-height: 60vh; }
 .pop-tile.all { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--accent); }
 .pop-option .ic-check { flex: none; width: 18px; height: 18px; margin-left: auto; color: var(--accent); }
 
-/* ---------- Shared park picker (header search, Change park, Compare, Drift) ---------- */
-.park-picker { position: relative; display: inline-flex; flex-direction: column; gap: 0.25rem; }
-.picker-label { font-size: 0.75rem; font-weight: 500; color: var(--muted); }
+/* ---------- Pickers (park + state comboboxes) ----------
+ * The field is the anchor: the wrapper hugs it (never stretches in a flex row),
+ * and the popover hangs from its left edge, shifted in by JS if it would leave
+ * the window. Fields share --ctl-h with chips and segmented controls.
+ */
+.park-picker { position: relative; flex: none; display: inline-flex; flex-direction: column; gap: 0.3rem; max-width: 100%; }
+.view-head > .park-picker, .park-tools > .park-picker { flex: none; }
+.picker-label { font-size: 0.75rem; font-weight: 500; color: var(--muted); line-height: 1.2; }
 .picker-box {
-  display: flex; align-items: center; gap: 0.55rem; padding: 0 1rem; height: 46px; width: 22rem; max-width: 100%;
+  display: flex; align-items: center; gap: 0.55rem; height: var(--ctl-h); padding: 0 1rem; width: 22rem; max-width: 100%;
   background: var(--surface); border: 1px solid var(--border); border-radius: 999px; box-shadow: var(--shadow-sm);
-  cursor: text; transition: border-color 0.15s, box-shadow 0.15s;
+  cursor: text; transition: border-color var(--dur-1), box-shadow var(--dur-1);
 }
+.size-sm .picker-box { width: 14rem; }
 .picker-box:hover { border-color: var(--border-strong); }
 .park-picker.open .picker-box, .picker-box:focus-within { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
-.picker-box .ic-search { flex: none; width: 17px; height: 17px; color: var(--muted); }
+.picker-box .ic-search, .picker-box .ic-chevron { flex: none; width: 16px; height: 16px; color: var(--muted); }
+.picker-box .ic-chevron { transition: transform var(--dur-2) var(--ease-out); }
+.park-picker.open .ic-chevron { transform: rotate(180deg); }
 .picker-box input {
-  flex: 1; min-width: 0; border: 0; padding: 0; background: transparent; outline: none;
-  font-size: 0.95rem; font-weight: 500; color: var(--ink); text-overflow: ellipsis;
+  flex: 1; min-width: 0; height: 100%; border: 0; padding: 0; background: transparent; outline: none;
+  font-size: 0.92rem; font-weight: 500; color: var(--ink); text-overflow: ellipsis;
 }
 .picker-box input::placeholder { color: var(--muted); opacity: 1; }
-.park-picker.header .picker-box { height: 38px; width: 13rem; padding: 0 0.85rem; box-shadow: none; }
+.picker-box input::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.picker-pop {
+  top: calc(100% + 8px); left: 0; width: max(100%, 400px); max-width: calc(100vw - 32px);
+  padding: 0.9rem 0.6rem 0.6rem;
+}
+.picker-pop .pop-head { margin: 0.35rem 0.6rem 0.4rem; }
+.picker-pop .pop-head:first-child { margin-top: 0; }
+.picker-pop .pop-tile { width: 44px; height: 44px; border-radius: 12px; }
+.picker-pop .pop-tile .ic { width: 22px; height: 22px; }
+.pop-tile.place { background: var(--surface-2); color: var(--ink); }
+
+/* Header search: fixed width (it never grows into the nav), popover right-aligned under it. */
+.park-picker.header .picker-box { height: 38px; width: 15rem; padding: 0 0.85rem; box-shadow: none; }
 .park-picker.header .picker-box input { font-size: 0.88rem; font-weight: 400; }
-.park-picker.open.header .picker-box { width: 16rem; }
-.picker-pop { top: calc(100% + 8px); width: 440px; max-width: calc(100vw - 32px); }
-/* Narrow desktops: the header search folds to an icon and expands over the nav when used. */
+.park-picker.header .picker-pop { left: auto; right: 0; width: 400px; }
+/* Narrow desktops: it folds to an icon and opens over the nav. */
 @media (max-width: 1120px) {
   .park-picker.header { width: 38px; height: 38px; }
   .park-picker.header .picker-box { position: absolute; right: 0; top: 0; width: 38px; padding: 0; justify-content: center; gap: 0; }
@@ -383,7 +399,6 @@ main { min-height: 60vh; }
   .park-picker.header.open .picker-box { width: 15rem; max-width: none; padding: 0 0.85rem; justify-content: flex-start; gap: 0.55rem; background: var(--surface); z-index: 2; }
   .park-picker.header.open .picker-box input { flex: 1; opacity: 1; }
 }
-.picker-pop.align-right { left: auto; right: 0; }
 .pop-text { display: flex; flex-direction: column; min-width: 0; }
 .pop-title { font-weight: 600; font-size: 0.98rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pop-sub { font-size: 0.84rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -517,7 +532,7 @@ main { min-height: 60vh; }
 .sign-stat { text-align: right; }
 .sign-stat .eyebrow { margin-bottom: 0.2rem; }
 .sign-stat b { display: block; font: 400 clamp(2rem, 4vw, 2.75rem)/1 var(--font-display); }
-.park-tools { display: flex; flex-wrap: wrap; gap: 0.6rem 0.8rem; align-items: flex-end; margin: 1.25rem 0 0; }
+.park-tools { display: flex; flex-wrap: wrap; gap: 0.6rem 0.75rem; align-items: flex-end; margin: 1.25rem 0 0; }
 
 .trail-notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1.25rem; margin: 0; }
 .note-card { border-left: 2px solid var(--bar-peak); padding: 0.1rem 0 0.1rem 0.9rem; }
@@ -588,7 +603,8 @@ main { min-height: 60vh; }
 }
 .month-strip button:hover { border-color: var(--border-strong); }
 .month-strip button.active { background: var(--btn-bg); border-color: var(--btn-bg); color: var(--btn-ink); }
-.filter-row { display: flex; flex-wrap: wrap; gap: 0.8rem 1.4rem; align-items: center; }
+.filter-row { display: flex; flex-wrap: wrap; gap: 0.8rem 1.4rem; align-items: flex-end; }
+.filter-row > .switch { height: var(--ctl-h); }
 .when-layout { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr); gap: 1.5rem; align-items: start; }
 .when-map { position: sticky; top: calc(var(--header-h) + 1rem); }
 .result-list { list-style: none; padding: 0; margin: 0.75rem 0; display: grid; gap: 0.6rem; }
@@ -725,7 +741,10 @@ footer a:hover { color: var(--sign-ink); }
   transition-duration: var(--dur-1); transition-timing-function: var(--ease-out);
 }
 :is(.btn, .chip, .chip-link, .segmented button, .month-strip button, .tile-go, .theme-btn, .switch):active { transform: scale(0.96); }
-:is(.finder-go, .pop-chip, .month-tile, .pop-option, .scope-row):active { transform: scale(0.985); } /* home filter: barely-there press */
+:is(.pop-chip, .month-tile, .pop-option, .scope-row):active { transform: scale(0.985); }
+/* Home filter: a light press, no bounce. */
+.finder-seg:active { transform: scale(0.975); }
+.finder-go:active { transform: scale(0.95); }
 :is(.tool-card, .fp-card, .result-card, .tile):active { transform: scale(0.985); }
 .region-card:active .region-art { transform: scale(0.985); }
 .region-art { transition: border-color var(--dur-1), transform var(--dur-1) var(--ease-out); }
@@ -768,7 +787,6 @@ footer a:hover { color: var(--sign-ink); }
   .park-picker.field { display: flex; width: 100%; }
   .brand-name { font-size: 1.2rem; }
   .header-inner { flex-wrap: wrap; column-gap: 0.75rem; }
-  .field, .field select { max-width: 100%; }
   .trail-notes { grid-template-columns: 1fr 1fr; }
   #nav { order: 4; width: calc(100% + 32px); margin: 0 -16px; padding: 0.2rem 16px 0.3rem; overflow-x: auto; scrollbar-width: none; gap: 1.3rem; }
   #nav::-webkit-scrollbar { display: none; }

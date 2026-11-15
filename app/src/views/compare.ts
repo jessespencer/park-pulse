@@ -22,8 +22,8 @@ export async function renderCompare(root: HTMLElement, s: AppState): Promise<voi
     h('div', { class: 'controls' }, modeToggle(s.mode)),
     readout,
     h('div', { class: 'compare' },
-      h('div', {}, parkPicker(idx, { label: 'Park A', value: a.code, includeNational: true, onPick: (v) => setState({ a: v }) }), legA, hostA),
-      h('div', {}, parkPicker(idx, { label: 'Park B', value: b.code, includeNational: true, onPick: (v) => setState({ b: v }) }), legB, hostB)),
+      h('div', {}, parkPicker(idx, { context: { kind: 'compare', other: b.code }, label: 'Park A', value: a.code, includeNational: true, onPick: (v) => setState({ a: v }) }), legA, hostA),
+      h('div', {}, parkPicker(idx, { context: { kind: 'compare', other: a.code }, label: 'Park B', value: b.code, includeNational: true, onPick: (v) => setState({ b: v }) }), legB, hostB)),
   );
 
   let ha: HeatmapHandle | null = null, hb: HeatmapHandle | null = null;

@@ -49,7 +49,7 @@ export async function renderDrift(root: HTMLElement, s: AppState): Promise<void>
   fill(root, 
     h('section', { class: 'view-head' },
       h('div', {}, h('p', { class: 'eyebrow dark' }, 'Season drift'), h('h1', { class: 'display-2' }, park.name), h('p', { class: 'lead' }, summary)),
-      parkPicker(idx, { label: 'Park', value: park.code, includeNational: true, align: 'right', onPick: (v) => setState({ park: v }) })),
+      parkPicker(idx, { context: { kind: 'drift' }, label: 'Park', value: park.code, includeNational: true, onPick: (v) => setState({ park: v }) })),
     h('h2', {}, 'Average monthly shape by decade'),
     h('p', { class: 'muted' }, 'Share of the year’s visits in each month, averaged over complete years in each decade (2020 excluded). Dashed line = an even 1/12 share.'),
     lines,

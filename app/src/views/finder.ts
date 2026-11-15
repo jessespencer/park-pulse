@@ -9,6 +9,7 @@ import * as topojson from 'topojson-client';
 import type { GeometryCollection, Topology } from 'topojson-specification';
 import statesTopo from 'us-atlas/states-10m.json';
 import { MONTHS_LONG, REGIONS, STATE_NAMES, isNationalPark, type IndexFile, type ParkSummary } from '../data';
+import { quietestParks } from '../insights';
 import { PICKER_ICON, matchParks, optionEl, parkRow, parkTitle } from '../parkPicker';
 import { setState } from '../state';
 import { h } from '../ui';
@@ -42,11 +43,9 @@ const REGION_NOTE: Record<string, string> = {
 export interface FinderOpts {
   /** 0-based current month. */
   now: number;
-  /** Parks to suggest before the user types (already ranked by the caller). */
-  suggested: ParkSummary[];
 }
 
-export function renderFinder(idx: IndexFile, { now, suggested }: FinderOpts): HTMLElement {
+export function renderFinder(idx: IndexFile, { now }: FinderOpts): HTMLElement {
   const sel = { park: null as ParkSummary | null, month: now, region: '', scope: 'np' as 'np' | 'all' };
   const npCount = idx.parks.filter(isNationalPark).length;
   let open: PanelId | null = null;
@@ -98,7 +97,8 @@ export function renderFinder(idx: IndexFile, { now, suggested }: FinderOpts): HT
   let active = -1;
   const label = (p: ParkSummary) => parkTitle(idx, p);
 
-  const matches = (q: string): ParkSummary[] => (q.trim() ? matchParks(idx, q) : suggested);
+  // Before typing, suggest the quietest parks in whichever month is picked in the Month field.
+  const matches = (q: string): ParkSummary[] => (q.trim() ? matchParks(idx, q) : quietestParks(idx.parks, sel.month, 6));
 
   function renderParkList(): void {
     const q = parkInput.value;
@@ -106,10 +106,10 @@ export function renderFinder(idx: IndexFile, { now, suggested }: FinderOpts): HT
     active = q.trim() && options.length ? 0 : -1;
     const head = q.trim()
       ? (options.length ? 'Parks' : `No parks match “${q.trim()}”`)
-      : `Quiet in ${MONTHS_LONG[now]}`;
+      : `Quiet in ${MONTHS_LONG[sel.month]}`;
     pops.park.replaceChildren(
       h('p', { class: 'pop-head' }, head),
-      ...options.map((p, i) => optionEl(parkRow(idx, p, q.trim() ? undefined : now), `finder-opt-${i}`,
+      ...options.map((p, i) => optionEl(parkRow(idx, p, q.trim() ? 'kind' : { month: sel.month }), `finder-opt-${i}`,
         { active: i === active, current: sel.park?.code === p.code, onPick: () => pickPark(p) })));
     syncActive();
   }

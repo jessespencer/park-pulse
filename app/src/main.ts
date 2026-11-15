@@ -121,7 +121,7 @@ async function boot(): Promise<void> {
 
   const idx = await loadIndex();
   document.getElementById('header-search')!.replaceChildren(parkPicker(idx, {
-    variant: 'header', placeholder: 'Search parks', align: 'right',
+    context: { kind: 'header' },
     onPick: (code) => setState({ view: getState().view === 'drift' ? 'drift' : 'park', park: code }),
   }));
 

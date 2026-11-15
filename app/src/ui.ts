@@ -107,14 +107,6 @@ export const modeToggle = (mode: Mode): HTMLElement =>
     { value: 'index', label: 'Index vs normal' },
   ], mode, (m) => setState({ mode: m }));
 
-export function select(
-  label: string, options: { value: string; label: string }[], current: string, onChange: (v: string) => void,
-): HTMLElement {
-  const s = h('select', { onchange: (e) => onChange((e.target as HTMLSelectElement).value) },
-    ...options.map((o) => h('option', { value: o.value, selected: o.value === current }, o.label)));
-  return h('label', { class: 'field' }, h('span', {}, label), s);
-}
-
 export const loading = (): HTMLElement => h('p', { class: 'muted loading' }, 'Loading…');
 export const errorBox = (msg: string): HTMLElement => h('p', { class: 'error', role: 'alert' }, msg);
 

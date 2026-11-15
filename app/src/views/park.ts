@@ -63,7 +63,7 @@ export async function renderPark(root: HTMLElement, s: AppState): Promise<void> 
   fill(root,
     sign,
     h('div', { class: 'park-tools' },
-      parkPicker(idx, { label: 'Change park', value: park.code, includeNational: true, onPick: (v) => setState({ park: v }) }),
+      parkPicker(idx, { context: { kind: 'park', current: park.code }, label: 'Change park', value: park.code, includeNational: true, onPick: (v) => setState({ park: v }) }),
       !isNat && h('a', { class: 'chip-link', href: `?view=drift&park=${park.code}`, onclick: (e: Event) => { e.preventDefault(); setState({ view: 'drift' }); } }, 'Season drift →'),
       !isNat && h('a', { class: 'chip-link', href: `?view=compare&a=${park.code}`, onclick: (e: Event) => { e.preventDefault(); setState({ view: 'compare', a: park.code }); } }, 'Compare →')),
     notes.childElementCount ? contourRule() : null,

@@ -7,7 +7,8 @@ import { OFF_SEASON, miniFingerprint } from '../insights';
 import { sequentialInterpolator } from '../scales';
 import { setState, type AppState } from '../state';
 import { esc, hideTooltip, showTooltip } from '../tooltip';
-import { fill, h, loading, segmented, select, toggleSwitch } from '../ui';
+import { statePicker } from '../parkPicker';
+import { fill, h, loading, segmented, toggleSwitch } from '../ui';
 
 const SHOW = 24;
 
@@ -26,6 +27,12 @@ export async function renderWhen(root: HTMLElement, s: AppState): Promise<void> 
 
   const states = [...new Set(idx.parks.flatMap((p) => p.states))].sort()
     .filter((st) => !s.region || REGIONS[s.region]?.includes(st));
+  // Parks per state under the current type filter, shown in the state picker.
+  const stateCounts = new Map<string, number>();
+  for (const p of idx.parks) {
+    if (!p.profile || (s.scope === 'np' && idx.hasMetadata && !isNationalPark(p))) continue;
+    for (const st of p.states) stateCounts.set(st, (stateCounts.get(st) ?? 0) + 1);
+  }
   const mapHost = h('div', { class: 'map panel' });
   const list = h('ol', { class: 'result-list' });
   ranked.slice(0, SHOW).forEach((p, i) => list.append(resultCard(p, m, i + 1, yMax)));
@@ -51,8 +58,7 @@ export async function renderWhen(root: HTMLElement, s: AppState): Promise<void> 
       monthStrip,
       h('div', { class: 'filter-row' },
         regionChips,
-        select('State', [{ value: '', label: 'All states' }, ...states.map((st) => ({ value: st, label: STATE_NAMES[st] ?? st }))],
-          s.st, (v) => setState({ st: v })),
+        statePicker({ label: 'State', value: s.st, states, counts: stateCounts, unit: s.scope === 'np' && idx.hasMetadata ? 'national park' : 'park unit', onPick: (v) => setState({ st: v }) }),
         idx.hasMetadata && segmented<'np' | 'all'>('Which units', [
           { value: 'np', label: 'National Parks' }, { value: 'all', label: 'All units' }], s.scope, (v) => setState({ scope: v })),
         toggleSwitch(`Hide off-season (under ${fmtPct(OFF_SEASON, 0)} of the year)`, s.open, (v) => setState({ open: v })))),
