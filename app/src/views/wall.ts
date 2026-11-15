@@ -34,22 +34,21 @@ export async function renderWall(root: HTMLElement, s: AppState): Promise<void> 
   fill(root, 
     h('section', { class: 'view-head' },
       h('div', {},
-        h('p', { class: 'eyebrow dark' }, 'Field guide'),
-        h('h1', { class: 'display-2' }, 'Park fingerprints'),
+        h('h1', { class: 'display-2' }, 'Fingerprints'),
         h('p', { class: 'muted' },
-          `Each park’s typical 12-month shape: the average share of a year’s visits in each month, ${idx.profileYears[0]}–${idx.profileYears[idx.profileYears.length - 1]} excluding 2020. Bars share one scale, so tall spikes mean a concentrated season.`))),
+          `Each park’s typical year: its share of year in each month, averaged over ${idx.profileYears[0]}–${idx.profileYears[idx.profileYears.length - 1]} (2020 excluded). All cards use one scale, so a tall spike means a short, concentrated season.`))),
     h('div', { class: 'controls' },
       segmented<WallSort>('Sort by', [
         { value: 'peak', label: 'Peak month' },
-        { value: 'peakiness', label: 'Peakiness' },
+        { value: 'peakiness', label: 'Busiest 3 months' },
         { value: 'total', label: 'Total visits' },
       ], s.sort, (v) => setState({ sort: v })),
       idx.hasMetadata && segmented<'np' | 'all'>('Which units', [
-        { value: 'np', label: 'National Parks' },
-        { value: 'all', label: 'All units' },
+        { value: 'np', label: 'National parks' },
+        { value: 'all', label: 'All park units' },
       ], s.scope, (v) => setState({ scope: v }))),
     fallback && h('p', { class: 'warn' }, 'Park designations aren’t loaded yet (NPS API metadata missing), so this shows every unit.'),
-    h('p', { class: 'hint muted' }, `${parks.length} parks. Peakiness = share of visits in the busiest 3 months. Click a park to open its heatmap.`),
+    h('p', { class: 'hint muted' }, `${parks.length} parks. “Top 3” is the share of a typical year’s visits in the park’s busiest 3 months. Select a park to open its profile.`),
     grid,
   );
 }
@@ -57,7 +56,7 @@ export async function renderWall(root: HTMLElement, s: AppState): Promise<void> 
 function card(p: ParkSummary, yMax: number): HTMLElement {
   return h('button', {
     type: 'button', class: 'fp-card',
-    title: `${p.name}: peak ${MONTHS_LONG[p.peakMonth! - 1]}, busiest 3 months = ${fmtPct(p.peakiness!, 0)}`,
+    title: `${p.name}: peak in ${MONTHS_LONG[p.peakMonth! - 1]}; busiest 3 months hold ${fmtPct(p.peakiness!, 0)} of the year`,
     onclick: () => setState({ view: 'park', park: p.code }),
   },
   h('span', { class: 'fp-name' }, p.shortName),

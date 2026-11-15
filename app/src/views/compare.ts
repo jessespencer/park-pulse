@@ -3,27 +3,45 @@ import { gridMax, renderHeatmap, type HeatmapHandle } from '../heatmap';
 import { setState, type AppState } from '../state';
 import { esc } from '../tooltip';
 import { parkPicker } from '../parkPicker';
+import { renderPickPark } from './pickPark';
 import { errorBox, fill, h, loading, modeToggle } from '../ui';
 
 export async function renderCompare(root: HTMLElement, s: AppState): Promise<void> {
   fill(root, loading());
+  if (!s.a || !s.b) {
+    const idx = await loadIndex();
+    const first = s.a || s.b;
+    const name = first ? idx.parks.find((p) => p.code === first)?.shortName ?? first : '';
+    renderPickPark(root, idx, first
+      ? { title: `Compare ${name} with…`, label: 'Find a second park', skip: first,
+        lede: 'Pick a second park to see both heatmaps side by side, month by month.',
+        onPick: (v) => setState(s.a ? { b: v } : { a: v }) }
+      : { title: 'Compare', label: 'Find a park',
+        lede: 'Pick two parks to see their monthly visits side by side. Start with the first.',
+        onPick: (v) => setState({ a: v }) });
+    return;
+  }
   const [idx, a, b] = await Promise.all([loadIndex(), loadPark(s.a).catch(() => null), loadPark(s.b).catch(() => null)]);
   if (!a || !b) {
     fill(root, errorBox(`No visitation data for “${!a ? s.a : s.b}”.`));
     return;
   }
-  const readout = h('div', { class: 'readout', 'aria-live': 'polite' }, h('span', { class: 'muted' }, 'Hover a cell to compare the same month in both parks.'));
+  const readout = h('div', { class: 'readout', 'aria-live': 'polite' }, h('span', { class: 'muted' }, 'Point to or tap a month in either heatmap to see both parks’ counts for it.'));
   const hostA = h('div', {}), hostB = h('div', {});
   const legA = h('div', { class: 'legend' }), legB = h('div', { class: 'legend' });
 
   fill(root, 
-    h('section', { class: 'view-head' }, h('div', {}, h('p', { class: 'eyebrow dark' }, 'Side by side'), h('h1', { class: 'display-2' }, 'Compare two parks'),
-      h('p', { class: 'muted' }, 'In Visits mode each heatmap uses its own color range (parks differ in size). Share of year and Index use one shared scale, so colors compare directly.'))),
+    h('section', { class: 'view-head' }, h('div', {}, h('p', { class: 'eyebrow dark' }, 'Compare'),
+      h('h1', { class: 'display-2' }, `${nameOf(a)} and ${nameOf(b)}`),
+      h('p', { class: 'muted' }, `Monthly visits to both parks, ${Math.max(a.firstYear, b.firstYear)}–${Math.min(a.lastYear, b.lastYear)}.`))),
     h('div', { class: 'controls' }, modeToggle(s.mode)),
+    h('p', { class: 'hint muted' }, s.mode === 'visits'
+      ? 'Each heatmap has its own color range, since the parks differ in size. Switch to Share of year to compare colors directly.'
+      : 'Both heatmaps use one color range, so colors compare directly.'),
     readout,
     h('div', { class: 'compare' },
-      h('div', {}, parkPicker(idx, { context: { kind: 'compare', other: b.code }, label: 'Park A', value: a.code, includeNational: true, onPick: (v) => setState({ a: v }) }), legA, hostA),
-      h('div', {}, parkPicker(idx, { context: { kind: 'compare', other: a.code }, label: 'Park B', value: b.code, includeNational: true, onPick: (v) => setState({ b: v }) }), legB, hostB)),
+      h('div', {}, parkPicker(idx, { context: { kind: 'compare', other: b.code }, label: 'First park', value: a.code, includeNational: true, onPick: (v) => setState({ a: v }) }), legA, hostA),
+      h('div', {}, parkPicker(idx, { context: { kind: 'compare', other: a.code }, label: 'Second park', value: b.code, includeNational: true, onPick: (v) => setState({ b: v }) }), legB, hostB)),
   );
 
   let ha: HeatmapHandle | null = null, hb: HeatmapHandle | null = null;
@@ -38,6 +56,8 @@ export async function renderCompare(root: HTMLElement, s: AppState): Promise<voi
   ha = renderHeatmap(hostA, a, s.mode, { onHover: sync, tooltip: false, legendHost: legA, max });
   hb = renderHeatmap(hostB, b, s.mode, { onHover: sync, tooltip: false, legendHost: legB, max });
 }
+
+const nameOf = (p: ParkDetail): string => p.shortName || p.name;
 
 function line(p: ParkDetail, year: number, month: number): string {
   const k = year - p.firstYear;

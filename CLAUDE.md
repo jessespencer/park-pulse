@@ -13,6 +13,7 @@ The app is **vanilla TypeScript + D3, with no UI framework**. Views are small im
 ## Architecture
 - `pipeline/build.py` is the single source of derived numbers (share, index, YoY, profiles, notes). The app only formats and draws them. Change measures there, not in TS.
 - `app/public/data/` is generated output: `index.json` (all park summaries), `national.json`, `parks/{CODE}.json`.
+- Each page's name and one-line description live in `app/src/pages.ts` (menu, home and tab title all read it). Pages about one park show a pick-a-park state (`views/pickPark.ts`) instead of defaulting to a park.
 - `app/src/state.ts` holds all UI state and round-trips it through the URL query string. Add new selections there, including the per-view key list `VIEW_KEYS`.
 - Color scales are theme-aware (`scales.ts`). The Day and Night ramps were checked for monotonic lightness, so re-check them if you change a stop. Views re-render on theme change.
 - Styling: all theme differences live in the CSS tokens of `style.css` (Day `:root`, plus Night in both the OS-preference block and the `[data-theme="dark"]` block). Don't write `[data-theme] .selector` overrides; they miss Auto mode. Illustration (`art.ts`) colors come from those same tokens.

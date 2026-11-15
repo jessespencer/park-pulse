@@ -21,8 +21,8 @@ const MODES: Mode[] = ['visits', 'share', 'index'];
 const SORTS: WallSort[] = ['peak', 'peakiness', 'total'];
 
 const DEFAULTS: AppState = {
-  view: 'home', park: 'ROMO', mode: 'visits', sort: 'peak', month: new Date().getMonth() + 1,
-  region: '', st: '', scope: 'np', open: true, a: 'ROMO', b: 'GRSM',
+  view: 'home', park: '', mode: 'visits', sort: 'peak', month: new Date().getMonth() + 1,
+  region: '', st: '', scope: 'np', open: true, a: '', b: '',
 };
 
 const pick = <T extends string>(v: string | null, allowed: readonly T[], d: T): T =>

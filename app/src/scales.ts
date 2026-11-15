@@ -52,8 +52,8 @@ export function makeScale(mode: Mode, max: number): ColorScale {
     return {
       color: (v) => s(toT(v)),
       stops: div,
-      ticks: marks.map((m) => ({ value: m, pos: (toT(m) + lim) / (2 * lim), label: m === 100 ? '100 (normal)' : String(m) })),
-      unit: 'Index vs this park’s 1979–2019 median for the same month (100 = typical; teal = quieter, rust = busier)',
+      ticks: marks.map((m) => ({ value: m, pos: (toT(m) + lim) / (2 * lim), label: m === 100 ? '100 (usual)' : String(m) })),
+      unit: 'Vs. usual: 100 is this park’s 1979–2019 median for that month, so 150 is half again as busy (teal = less busy, rust = busier)',
     };
   }
   const domainMax = Math.max(max, mode === 'share' ? 0.01 : 1);
@@ -70,7 +70,7 @@ export function makeScale(mode: Mode, max: number): ColorScale {
     })),
     unit: mode === 'share'
       ? 'Share of that year’s recreation visits (%)'
-      : 'Recreation visits per month (square-root color scale)',
+      : 'Recreation visits per month',
   };
 }
 

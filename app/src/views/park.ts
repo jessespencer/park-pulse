@@ -5,7 +5,7 @@ import { renderHeatmap } from '../heatmap';
 import { busyMonths, monthSpan, quietMonths } from '../insights';
 import { setState, type AppState } from '../state';
 import { hideTooltip, showTooltip } from '../tooltip';
-import { parkPicker } from '../parkPicker';
+import { renderPickPark } from './pickPark';
 import { countUp, errorBox, fill, h, loading, modeToggle } from '../ui';
 
 /** Last visit total shown on the sign, so switching parks ticks from it. */
@@ -15,7 +15,15 @@ const KIND_LABEL = { shutdown: 'Shutdown', covid: 'COVID-19', data: 'Data note' 
 
 export async function renderPark(root: HTMLElement, s: AppState): Promise<void> {
   fill(root, loading());
-  const [idx, park] = await Promise.all([loadIndex(), loadPark(s.park).catch(() => null)]);
+  if (!s.park) {
+    renderPickPark(root, await loadIndex(), {
+      title: 'Park profile', label: 'Find a park',
+      lede: 'Pick a park to see its busy season, every month of visits since 1979, and any shutdowns or closures in the record.',
+      onPick: (v) => setState({ park: v }),
+    });
+    return;
+  }
+  const park = await loadPark(s.park).catch(() => null);
   if (!park) {
     fill(root, errorBox(`No visitation data for park code “${s.park}”.`));
     return;
@@ -52,8 +60,8 @@ export async function renderPark(root: HTMLElement, s: AppState): Promise<void> 
   if (park.profile) {
     const quiet = quietMonths(park).slice(0, 2).sort((a, b) => a - b);
     note('Peak month', MONTHS_LONG[park.peakMonth! - 1], `${fmtPct(park.profile[park.peakMonth! - 1], 0)} of a typical year`);
-    note('Best bet for quiet', quiet.map((m) => MONTHS[m]).join(' & ') || '—', 'Quietest months that aren’t off-season');
-    note('Busy season', monthSpan(busyMonths(park)), 'Months above an even 1/12 share');
+    note('Slowest open months', quiet.map((m) => MONTHS[m]).join(' & ') || '—', 'Lowest share of the year, not counting off-season');
+    note('Busy season', monthSpan(busyMonths(park)), 'Months busier than an average month');
   }
   if (park.peakiness != null) note('Busiest 3 months', fmtPct(park.peakiness, 0), 'of all visits in a typical year');
 
@@ -63,23 +71,22 @@ export async function renderPark(root: HTMLElement, s: AppState): Promise<void> 
   fill(root,
     sign,
     h('div', { class: 'park-tools' },
-      parkPicker(idx, { context: { kind: 'park', current: park.code }, label: 'Change park', value: park.code, includeNational: true, onPick: (v) => setState({ park: v }) }),
-      !isNat && h('a', { class: 'chip-link', href: `?view=drift&park=${park.code}`, onclick: (e: Event) => { e.preventDefault(); setState({ view: 'drift' }); } }, 'Season drift →'),
-      !isNat && h('a', { class: 'chip-link', href: `?view=compare&a=${park.code}`, onclick: (e: Event) => { e.preventDefault(); setState({ view: 'compare', a: park.code }); } }, 'Compare →')),
+      !isNat && h('a', { class: 'chip-link', href: `?view=drift&park=${park.code}`, onclick: (e: Event) => { e.preventDefault(); setState({ view: 'drift' }); } }, 'Season drift'),
+      !isNat && h('a', { class: 'chip-link', href: `?view=compare&a=${park.code}`, onclick: (e: Event) => { e.preventDefault(); setState({ view: 'compare', a: park.code, b: '' }); } }, 'Compare with another park')),
     notes.childElementCount ? contourRule() : null,
     notes.childElementCount ? notes : null,
     park.profile && h('section', { class: 'section tight' },
       h('h2', { class: 'section-title' }, 'A typical year'),
-      h('p', { class: 'muted small' }, `Average share of the year’s visits by month, ${park.profileYears[0]}–${park.profileYears.at(-1)} (2020 excluded). Dashed line = an even month.`),
+      h('p', { class: 'muted small' }, `Average share of the year’s visits by month, ${park.profileYears[0]}–${park.profileYears.at(-1)} (2020 excluded). The dashed line is an average month.`),
       ribbon),
     h('section', { class: 'section tight' },
       h('h2', { class: 'section-title' }, `Every month since ${park.firstYear}`),
       h('div', { class: 'controls' }, modeToggle(s.mode), legend),
-      h('p', { class: 'hint muted' }, 'Rows are years, columns are months. Hover or tap a cell for the exact count. ⚑ marks shutdowns, closures and data notes.'),
+      h('p', { class: 'hint muted' }, 'Rows are years, columns are months. ⚑ marks shutdowns, closures and data notes.'),
       heat),
     h('section', { class: 'section ranger-notes panel' },
       h('h2', { class: 'section-title' }, 'Ranger notes'),
-      h('p', { class: 'muted small' }, 'Breaks in the record are flagged, never smoothed. Counts are exactly as NPS published them.'),
+      h('p', { class: 'muted small' }, breaks.length ? 'Shutdowns, closures and gaps in this park’s record.' : 'No shutdowns, closures or gaps on record for this park.'),
       h('ul', {}, ...breaks.map((n) => h('li', { class: `note-${n.kind}` },
         h('span', { class: `tag tag-${n.kind}` }, KIND_LABEL[n.kind]),
         h('strong', {}, ` ${MONTHS_LONG[n.month - 1]} ${n.year}. `), n.text))),

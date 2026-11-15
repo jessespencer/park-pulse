@@ -7,9 +7,10 @@ import './style.css';
 import { emblem, paintTopo, topo } from './art';
 import { loadIndex } from './data';
 import { mountDock, type Dock } from './dock';
+import { PAGES, pageLabel } from './pages';
 import { getState, setState, subscribe, type AppState, type View } from './state';
 import { hideTooltip } from './tooltip';
-import { durMs, errorBox, h, reduceMotion } from './ui';
+import { durMs, errorBox, fmtDate, h, reduceMotion } from './ui';
 import { renderCompare } from './views/compare';
 import { renderDrift } from './views/drift';
 import { renderHome } from './views/home';
@@ -17,14 +18,9 @@ import { renderPark } from './views/park';
 import { renderWall } from './views/wall';
 import { renderWhen } from './views/when';
 
-const VIEWS: { id: View; label: string; nav: boolean; blurb?: string; icon?: string; render: (root: HTMLElement, s: AppState) => Promise<void> }[] = [
-  { id: 'home', label: 'Trailhead', nav: false, render: (root) => renderHome(root) },
-  { id: 'when', label: 'When to go', nav: true, blurb: 'Quietest parks in any month', icon: 'M4 6h16v14H4zM4 10h16M8 3v5M16 3v5M9 14h2v2H9z', render: renderWhen },
-  { id: 'park', label: 'Park heatmap', nav: true, blurb: 'Every month since 1979', icon: 'M4 4h4v4H4zM10 4h4v4h-4zM16 4h4v4h-4zM4 10h4v4H4zM10 10h4v4h-4zM16 10h4v4h-4zM4 16h4v4H4zM10 16h4v4h-4z', render: renderPark },
-  { id: 'wall', label: 'Fingerprints', nav: true, blurb: 'All 64 national parks side by side', icon: 'M4 20V12M8 20V7M12 20V4M16 20V9M20 20v-6', render: renderWall },
-  { id: 'drift', label: 'Season drift', nav: true, blurb: 'How the busy season has shifted', icon: 'M3 17c3-6 6-9 9-9s6 3 9 9M3 12c3-4 6-6 9-6s6 2 9 6', render: renderDrift },
-  { id: 'compare', label: 'Compare', nav: true, blurb: 'Two parks, month by month', icon: 'M4 5h7v14H4zM13 5h7v14h-7z', render: renderCompare },
-];
+const RENDER: Record<View, (root: HTMLElement, s: AppState) => Promise<void>> = {
+  home: (root) => renderHome(root), when: renderWhen, park: renderPark, wall: renderWall, drift: renderDrift, compare: renderCompare,
+};
 
 const app = document.getElementById('app')!;
 const nav = document.getElementById('nav')!;
@@ -34,16 +30,16 @@ let pageKey = '';
 let dock: Dock | null = null;
 
 function renderNav(s: AppState): void {
-  nav.replaceChildren(...VIEWS.filter((v) => v.nav).map((v) => {
+  nav.replaceChildren(...PAGES.map((v) => {
     const icon = h('span', { class: 'menu-ic' });
     icon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${v.icon}"/></svg>`;
     return h('a', {
       href: `?view=${v.id}`,
       'aria-current': v.id === s.view ? 'page' : undefined,
       onclick: (e: Event) => { e.preventDefault(); setMenu(false); setState({ view: v.id }); },
-    }, icon, h('span', { class: 'menu-text' }, h('span', { class: 'menu-title' }, v.label), h('span', { class: 'menu-blurb' }, v.blurb ?? '')));
+    }, icon, h('span', { class: 'menu-text' }, h('span', { class: 'menu-title' }, v.label), h('span', { class: 'menu-blurb' }, v.blurb)));
   }));
-  menuLabel.textContent = VIEWS.find((v) => v.id === s.view && v.nav)?.label ?? 'Explore';
+  menuLabel.textContent = s.view === 'home' ? 'Explore' : pageLabel(s.view);
 }
 
 /* ---------- Menu (the views live here, so the header stays one row with the search centered) ---------- */
@@ -77,8 +73,7 @@ async function render(s: AppState, opts: { scrollTop?: boolean } = {}): Promise<
   const seq = ++renderSeq;
   hideTooltip();
   renderNav(s);
-  const view = VIEWS.find((v) => v.id === s.view)!;
-  document.title = s.view === 'home' ? 'Park Pulse — beat the crowds' : `${view.label} · Park Pulse`;
+  document.title = s.view === 'home' ? 'Park Pulse: busy seasons at U.S. national parks' : `${pageLabel(s.view)} · Park Pulse`;
   document.body.dataset.view = s.view;
   const key = `${s.view}:${s.view === 'compare' ? `${s.a}|${s.b}` : s.view === 'park' || s.view === 'drift' ? s.park : ''}`;
   const entering = key !== pageKey;
@@ -91,7 +86,7 @@ async function render(s: AppState, opts: { scrollTop?: boolean } = {}): Promise<
   if (current) { stage.classList.add('is-pending'); app.append(stage); } else app.replaceChildren(stage);
   const slow = current ? window.setTimeout(() => current.classList.add('is-busy'), 250) : 0;
   try {
-    await view.render(stage, s);
+    await RENDER[s.view](stage, s);
   } catch (err) {
     stage.replaceChildren(errorBox(String(err instanceof Error ? err.message : err)));
   }
@@ -119,8 +114,7 @@ function applyTheme(t: Theme): void {
   else document.documentElement.dataset.theme = t;
   themeBtn.innerHTML = THEME_ICON[t];
   const name = t === 'light' ? 'Day' : t === 'dark' ? 'Night' : 'Auto';
-  themeBtn.title = `Theme: ${name}`;
-  themeBtn.setAttribute('aria-label', `Theme: ${name}. Click to change.`);
+  themeBtn.title = `Theme: ${name}`; // also the button's accessible name
 }
 let theme: Theme = 'auto';
 try { theme = (localStorage.getItem('pp-theme') as Theme) || 'auto'; } catch { /* storage blocked */ }
@@ -174,11 +168,10 @@ async function boot(): Promise<void> {
   const lastYear = Math.max(...idx.parks.map((p) => p.lastYear));
   const footer = document.getElementById('footer')!;
   footer.replaceChildren(h('div', { class: 'footer-inner' },
-    h('div', { class: 'footer-brand' }, h('span', { class: 'brand-name' }, 'Park Pulse'),
-      h('p', {}, 'Leave no trace. Go when it’s quiet.')),
+    h('div', { class: 'footer-brand' }, h('span', { class: 'brand-name' }, 'Park Pulse')),
     h('p', { class: 'footer-meta' },
       'Data: ', h('a', { href: 'https://irma.nps.gov/DataStore/Reference/Profile/2317666', target: '_blank', rel: 'noopener' }, 'NPS Visitor Use Statistics'),
-      ` (CC0) · recreation visits 1979–${lastYear} · published ${idx.asOf ?? 'n/a'}. `,
+      ` (CC0) · recreation visits 1979–${lastYear} · published ${fmtDate(idx.asOf)}. `,
       'Counts as published by NPS; counting methods vary by park. An independent project — not affiliated with or endorsed by the National Park Service.')));
   const mark = h('span', { class: 'footer-mark' });
   mark.innerHTML = emblem(32);

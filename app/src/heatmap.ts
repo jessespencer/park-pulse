@@ -41,7 +41,7 @@ export function cellDetail(park: ParkDetail, year: number, month: number): strin
     lines.push(`<span class="big">${fmtInt(v)}</span> recreation visits`);
     const extra = [
       s != null ? `${fmtPct(s)} of year` : null,
-      i != null ? `index ${Math.round(i)}` : null,
+      i != null ? `${Math.round(i)} vs. usual` : null,
       yy != null ? `${yy >= 0 ? '+' : ''}${fmtPct(yy, 0)} vs ${year - 1}` : null,
     ].filter(Boolean);
     if (extra.length) lines.push(`<span class="muted">${extra.join(' · ')}</span>`);
@@ -82,7 +82,7 @@ export function renderHeatmap(host: HTMLElement, park: ParkDetail, mode: Mode, o
   const svg = d3.select(host).append('svg')
     .attr('width', W).attr('height', H + 4).attr('viewBox', `0 0 ${W} ${H + 4}`)
     .attr('role', 'img')
-    .attr('aria-label', `${park.name}: monthly recreation visits ${park.firstYear}–${park.lastYear}, ${mode === 'visits' ? 'absolute' : mode === 'share' ? 'share of year' : 'index vs normal'}`);
+    .attr('aria-label', `${park.name}: monthly recreation visits ${park.firstYear}–${park.lastYear}, ${mode === 'visits' ? 'absolute' : mode === 'share' ? 'share of year' : 'compared with usual'}`);
 
   const defs = svg.append('defs');
   defs.append('pattern').attr('id', 'nodata').attr('width', 4).attr('height', 4)

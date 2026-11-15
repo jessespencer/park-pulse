@@ -82,7 +82,9 @@ export function mountDock(headerSlot: HTMLElement, header: HTMLElement, idx: Ind
     update(s: AppState) {
       pill.set({
         park: (s.view === 'park' || s.view === 'drift') && s.park !== NATIONAL ? s.park : null,
-        month: s.view === 'when' ? s.month - 1 : now,
+        // Month and region are search inputs, not filters on this page: show them as placeholders
+        // everywhere except When to go, where they mirror the page.
+        month: s.view === 'when' ? s.month - 1 : null,
         region: s.view === 'when' ? s.region : '',
         scope: s.view === 'when' ? s.scope : 'np',
       });

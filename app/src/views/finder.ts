@@ -42,8 +42,9 @@ const REGION_NOTE: Record<string, string> = {
 
 export interface FinderValues {
   park?: string | null;
-  /** 0-based month. */
-  month?: number;
+  /** 0-based month; null means none chosen on this page (the pill shows a "Month" placeholder
+   *  and a search uses the current month). */
+  month?: number | null;
   region?: string;
   scope?: 'np' | 'all';
 }
@@ -77,7 +78,7 @@ export type { PanelId };
 
 export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onSubmit, compact = false }: FinderOpts): FinderHandle {
   const byCode = new Map(idx.parks.map((p) => [p.code, p]));
-  const sel = { park: null as ParkSummary | null, month: now, region: '', scope: 'np' as 'np' | 'all' };
+  const sel = { park: null as ParkSummary | null, month: now, monthSet: true, region: '', scope: 'np' as 'np' | 'all' };
   const npCount = idx.parks.filter(isNationalPark).length;
   let open: PanelId | null = null;
 
@@ -139,7 +140,7 @@ export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onS
   let active = -1;
   const label = (p: ParkSummary) => parkTitle(idx, p);
 
-  // Before typing, suggest the quietest parks in whichever month is picked in the Month field.
+  // Before typing, suggest the off-peak parks in whichever month is picked in the Month field.
   const matches = (q: string): ParkSummary[] => (q.trim() ? matchParks(idx, q) : quietestParks(idx.parks, sel.month, 6));
 
   function renderParkList(): void {
@@ -149,7 +150,7 @@ export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onS
     active = q.trim() && options.length ? 0 : -1;
     const head = q.trim()
       ? (options.length ? 'Parks' : `No parks match “${q.trim()}”`)
-      : `Quiet in ${MONTHS_LONG[sel.month]}`;
+      : `Off-peak in ${MONTHS_LONG[sel.month]}`;
     pops.park.replaceChildren(
       h('p', { class: 'pop-head' }, head),
       ...options.map((p, i) => optionEl(parkRow(idx, p, q.trim() ? 'kind' : { month: sel.month }), `${uid}-opt-${i}`,
@@ -208,7 +209,7 @@ export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onS
         }, MONTHS_LONG[m].slice(0, 3), m === now ? h('i', { 'aria-hidden': 'true' }) : null))))),
     );
   }
-  function pickMonth(m: number): void { sel.month = m; syncValues(); if (compact) { setOpen(null); go.focus(); } else setOpen('region'); }
+  function pickMonth(m: number): void { sel.month = m; sel.monthSet = true; syncValues(); if (compact) { setOpen(null); go.focus(); } else setOpen('region'); }
 
   /* ---------- region cards with mini maps ---------- */
   function renderRegion(): void {
@@ -247,8 +248,11 @@ export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onS
 
   /* ---------- open / close ---------- */
   function syncValues(): void {
-    monthVal.textContent = MONTHS_LONG[sel.month];
+    const placeholder = compact && !sel.monthSet;
+    monthVal.textContent = placeholder ? 'Month' : MONTHS_LONG[sel.month];
+    monthVal.classList.toggle('is-placeholder', placeholder);
     regionVal.textContent = sel.region || 'Anywhere';
+    regionVal.classList.toggle('is-placeholder', compact && !sel.region);
     scopeVal.textContent = sel.scope === 'np' ? 'National parks' : 'All park units';
   }
 
@@ -312,7 +316,7 @@ export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onS
   }
 
   function set(v: FinderValues): void {
-    if (v.month != null) sel.month = v.month;
+    if (v.month !== undefined) { sel.month = v.month ?? now; sel.monthSet = v.month != null; }
     if (v.region != null) sel.region = v.region;
     if (v.scope) sel.scope = v.scope;
     if (v.park !== undefined) {
