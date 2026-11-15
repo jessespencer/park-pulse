@@ -25,7 +25,7 @@ export async function renderHome(root: HTMLElement): Promise<void> {
   const yMax = d3.quantile(pool.map((p) => d3.max(p.profile!)!).sort(d3.ascending), 0.95) ?? 0.25;
   const lastYear = d3.max(idx.parks, (p) => p.lastYear);
 
-  const finder = renderFinder(idx, { now });
+  const finder = renderFinder(idx, { now, uid: 'hero-finder' }).el;
 
   const hero = h('section', { class: 'hero' },
     topo({ seed: 7, scale: 560, levels: 26, grid: 240 }),

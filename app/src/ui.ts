@@ -50,7 +50,7 @@ export function countUp(el: HTMLElement, from: number, to: number, format: (n: n
 }
 
 /** Read a duration token (e.g. --dur-3) in ms, so JS motion obeys the same tokens and reduced motion. */
-const durMs = (token: string): number => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(token)) || 0;
+export const durMs = (token: string): number => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(token)) || 0;
 
 type Rect = { left: number; width: number };
 /** Per control: where the pill is headed, where it started, and when (performance.now()). */

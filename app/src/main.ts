@@ -6,7 +6,7 @@ import '@fontsource-variable/public-sans';
 import './style.css';
 import { emblem, paintTopo, topo } from './art';
 import { loadIndex } from './data';
-import { parkPicker } from './parkPicker';
+import { mountDock, type Dock } from './dock';
 import { getState, setState, subscribe, type AppState, type View } from './state';
 import { hideTooltip } from './tooltip';
 import { errorBox, h } from './ui';
@@ -31,6 +31,7 @@ const nav = document.getElementById('nav')!;
 let renderSeq = 0;
 /** The page a render belongs to; entrance motion plays only when this changes, not on filter tweaks. */
 let pageKey = '';
+let dock: Dock | null = null;
 
 function renderNav(s: AppState): void {
   nav.replaceChildren(...VIEWS.filter((v) => v.nav).map((v) => h('a', {
@@ -69,6 +70,7 @@ async function render(s: AppState, opts: { scrollTop?: boolean } = {}): Promise<
   if (entering) stage.classList.add('is-enter'); // entrance starts at the swap, not while hidden
   if (opts.scrollTop) scrollTo({ top: 0 });
   paintTopo();
+  dock?.update(s);
 }
 
 /* Theme: Auto (OS) → Day → Night. A per-viewer convenience, so localStorage is fine. */
@@ -130,10 +132,7 @@ async function boot(): Promise<void> {
   document.getElementById('brand')!.addEventListener('click', (e) => { e.preventDefault(); setState({ view: 'home' }); });
 
   const idx = await loadIndex();
-  document.getElementById('header-search')!.replaceChildren(parkPicker(idx, {
-    context: { kind: 'header' },
-    onPick: (code) => setState({ view: getState().view === 'drift' ? 'drift' : 'park', park: code }),
-  }));
+  dock = mountDock(document.getElementById('dock')!, document.querySelector<HTMLElement>('.site-header')!, idx);
 
   if (!idx.hasMetadata) {
     const b = document.getElementById('banner')!;

@@ -151,13 +151,13 @@ body .site-header.scrolled {
 body[data-view="home"] .site-header { border-bottom-color: transparent; }
 .header-inner {
   padding: 0 clamp(16px, 3vw, 40px); min-height: 68px; /* full bleed, edge to edge */
-  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 2rem;
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 0.5rem 2rem; /* one row on desktop; phones wrap below */
 }
-.brand { display: flex; align-items: center; gap: 0.6rem; text-decoration: none; color: var(--accent); }
+.brand { flex: none; display: flex; align-items: center; gap: 0.6rem; text-decoration: none; color: var(--accent); white-space: nowrap; }
 .brand:hover { color: var(--accent); }
 .brand .emblem { display: block; }
 .brand-name { font: 800 1.4rem/1 var(--font-sign); text-transform: uppercase; letter-spacing: 0.02em; }
-#nav { display: flex; gap: 1.6rem; margin-left: auto; }
+#nav { display: flex; gap: 1.6rem; }
 #nav a {
   text-decoration: none; color: var(--muted); font-weight: 500; font-size: 0.9rem; white-space: nowrap;
   padding: 0.35rem 0; box-shadow: inset 0 -2px 0 transparent;
@@ -165,7 +165,6 @@ body[data-view="home"] .site-header { border-bottom-color: transparent; }
 #nav a:hover { color: var(--ink); }
 #nav a[aria-current="page"] { color: var(--ink); box-shadow: inset 0 -2px 0 var(--accent); }
 .header-tools { display: flex; gap: 0.6rem; align-items: center; }
-body[data-view="home"] .header-tools .search { display: none; }
 .theme-btn {
   width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
   background: transparent; color: var(--ink); border: 1px solid var(--border); padding: 0;
@@ -184,6 +183,62 @@ main { min-height: 60vh; position: relative; }
 .stage { max-width: 1180px; margin: 0 auto; padding: 2rem 24px 4rem; }
 .stage-full { max-width: none; padding: 0 0 3rem; }
 .stage-full > .section, .stage-full > .tiles { max-width: 1180px; margin: 0 auto; padding: 3.25rem 24px 0; }
+
+/* ---------- Header search dock ----------
+ * Compact pill in the header that expands into the full finder (dock.ts). On home it
+ * stays hidden while the hero bar is on screen, and the two morph into each other.
+ */
+.dock { flex: 1 1 auto; min-width: 0; display: flex; justify-content: center; }
+.dock-pill {
+  display: flex; align-items: center; height: 48px; padding: 0 7px 0 4px; max-width: 100%;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 6px 16px -10px rgb(0 0 0 / 0.3);
+  transition: box-shadow var(--dur-2) var(--ease-out), opacity var(--dur-2) var(--ease-out);
+}
+.dock-pill:hover { box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 10px 24px -10px rgb(0 0 0 / 0.4); }
+.dock-seg {
+  display: flex; align-items: center; gap: 0.5rem; height: 100%; min-width: 0; padding: 0 1rem;
+  border: 0; background: none; border-radius: 999px; cursor: pointer;
+  font-size: 0.88rem; font-weight: 600; color: var(--ink); white-space: nowrap;
+}
+.dock-seg:hover { background: var(--surface-2); }
+.dock-val { overflow: hidden; text-overflow: ellipsis; max-width: 13rem; }
+.dock-ic { flex: none; width: 18px; height: 18px; color: var(--accent); }
+.dock-sep { flex: none; width: 1px; height: 22px; background: var(--border); }
+.dock-seg:hover + .dock-sep, .dock-sep:has(+ .dock-seg:hover) { opacity: 0; }
+.dock-go {
+  flex: none; display: grid; place-items: center; width: 34px; height: 34px; margin-left: 0.35rem;
+  border: 0; border-radius: 50%; cursor: pointer; background: var(--btn-bg); color: var(--btn-ink);
+  transition: filter var(--dur-1), transform var(--dur-1) var(--ease-out);
+}
+.dock-go:hover { filter: brightness(1.12); }
+.dock-go:active, .dock-seg:active { transform: scale(0.96); }
+.dock-search { width: 16px; height: 16px; }
+
+/* Home: hidden while the hero bar is on screen; the hero bar steps aside once it has docked. */
+body.dock-hidden .dock-pill { opacity: 0; pointer-events: none; }
+.hero .finder { transition: opacity var(--dur-2) var(--ease-out); }
+body[data-view="home"]:not(.dock-hidden) .hero .finder { opacity: 0; pointer-events: none; }
+
+/* Expanded: the header and panel read as one surface over a dimmed page. */
+.site-header.dock-expanded { background: var(--surface); box-shadow: none; border-bottom-color: transparent; }
+.dock-panel {
+  position: absolute; left: 0; right: 0; top: 100%;
+  padding: 0.6rem clamp(16px, 3vw, 40px) 1.5rem;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  box-shadow: 0 22px 30px -24px rgb(0 0 0 / 0.45);
+}
+.dock-panel[hidden] { display: none; }
+.dock-panel-inner { max-width: 820px; margin: 0 auto; }
+.dock-panel .finder { margin: 0 auto; }
+.dock-panel .finder-bar { box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 10px 26px -14px rgb(0 0 0 / 0.35); }
+.dock-scrim { position: fixed; inset: 0; z-index: 15; background: rgb(8 14 11 / 0.32); }
+.dock-scrim[hidden] { display: none; }
+
+/* Narrower headers: drop the region, then the month, before anything wraps. */
+@media (max-width: 1360px) { .dock-region, .dock-sep-region { display: none; } }
+@media (max-width: 1060px) { .dock-month, .dock-sep { display: none; } .dock-val { max-width: 10rem; } }
+@media (min-width: 761px) and (max-width: 1180px) { .header-inner { column-gap: 1.25rem; } #nav { gap: 1.1rem; } }
 
 /* ---------- Buttons / controls ---------- */
 .btn {
@@ -398,18 +453,6 @@ main { min-height: 60vh; position: relative; }
 .picker-pop .pop-tile .ic { width: 22px; height: 22px; }
 .pop-tile.place { background: var(--surface-2); color: var(--ink); }
 
-/* Header search: fixed width (it never grows into the nav), popover right-aligned under it. */
-.park-picker.header .picker-box { height: 38px; width: 15rem; padding: 0 0.85rem; box-shadow: none; }
-.park-picker.header .picker-box input { font-size: 0.88rem; font-weight: 400; }
-.park-picker.header .picker-pop { left: auto; right: 0; width: 400px; }
-/* Narrow desktops: it folds to an icon and opens over the nav. */
-@media (max-width: 1120px) {
-  .park-picker.header { width: 38px; height: 38px; }
-  .park-picker.header .picker-box { position: absolute; right: 0; top: 0; width: 38px; padding: 0; justify-content: center; gap: 0; }
-  .park-picker.header .picker-box input { width: 0; flex: 0 0 0; opacity: 0; }
-  .park-picker.header.open .picker-box { width: 15rem; max-width: none; padding: 0 0.85rem; justify-content: flex-start; gap: 0.55rem; background: var(--surface); z-index: 2; }
-  .park-picker.header.open .picker-box input { flex: 1; opacity: 1; }
-}
 .pop-text { display: flex; flex-direction: column; min-width: 0; }
 .pop-title { font-weight: 600; font-size: 0.98rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pop-sub { font-size: 0.84rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -791,7 +834,7 @@ footer a:hover { color: var(--sign-ink); }
 }
 @media (max-width: 760px) {
   body { font-size: 15px; }
-  .site-header { position: static; }
+  .site-header { position: relative; } /* not sticky on phones, but still anchors the search panel */
   .header-inner { padding: 0.6rem 16px 0.3rem; min-height: 0; }
   .header-tools { margin-left: auto; }
   .park-picker.field .picker-box { width: 100%; }
@@ -799,6 +842,13 @@ footer a:hover { color: var(--sign-ink); }
   .brand-name { font-size: 1.2rem; }
   .header-inner { flex-wrap: wrap; column-gap: 0.75rem; }
   .trail-notes { grid-template-columns: 1fr 1fr; }
+  .dock { order: 3; flex: 1 1 100%; }
+  .dock-pill { width: 100%; }
+  .dock-pill .dock-park { flex: 1; }
+  .dock-month, .dock-sep { display: flex; }
+  .dock-sep-region { display: none; }
+  .dock-panel { padding: 0.4rem 16px 1rem; }
+  body.dock-hidden .dock { display: none; } /* header doesn't stick on phones: home keeps just the hero bar */
   #nav { order: 4; width: calc(100% + 32px); margin: 0 -16px; padding: 0.2rem 16px 0.3rem; overflow-x: auto; scrollbar-width: none; gap: 1.3rem; }
   #nav::-webkit-scrollbar { display: none; }
   .stage { padding: 1.4rem 16px 3rem; }
@@ -815,8 +865,6 @@ footer a:hover { color: var(--sign-ink); }
   .pop-chip { white-space: nowrap; }
   .finder .finder-pop { left: 0 !important; right: 0; width: auto; border-radius: 22px; padding: 1.1rem; }
   .park-picker.field .picker-pop { left: 0; right: 0; width: auto; }
-  /* Open header search covers the whole bar up to the theme button instead of half the logo. */
-  .park-picker.header.open .picker-box { width: calc(100vw - 32px - 44px); }
   .pop-park, .pop-scope { padding-inline: 0.5rem; }
   .region-grid { grid-template-columns: repeat(2, 1fr); }
   .season { grid-template-columns: 3.6rem repeat(3, 1fr); }

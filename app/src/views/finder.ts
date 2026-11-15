@@ -40,12 +40,40 @@ const REGION_NOTE: Record<string, string> = {
   Territories: 'Puerto Rico, Guam, more',
 };
 
+export interface FinderValues {
+  park?: string | null;
+  /** 0-based month. */
+  month?: number;
+  region?: string;
+  scope?: 'np' | 'all';
+}
+
 export interface FinderOpts {
   /** 0-based current month. */
   now: number;
+  /** Starting selection (e.g. the page's current month and region). */
+  initial?: FinderValues;
+  /** Prefix for element ids, so two finders (hero + header) can coexist. */
+  uid?: string;
+  /** Called after a search navigates (the header dock collapses on it). */
+  onSubmit?: () => void;
 }
 
-export function renderFinder(idx: IndexFile, { now }: FinderOpts): HTMLElement {
+export interface FinderHandle {
+  el: HTMLFormElement;
+  /** Open one segment's picker (or close all with null). */
+  open: (id: PanelId | null) => void;
+  isOpen: () => boolean;
+  /** Replace the selection, e.g. when the page changes under a persistent finder. */
+  set: (v: FinderValues) => void;
+  /** Labels for a compact summary: park, month and region as shown. */
+  summary: () => { park: string; month: string; region: string };
+}
+
+export type { PanelId };
+
+export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onSubmit }: FinderOpts): FinderHandle {
+  const byCode = new Map(idx.parks.map((p) => [p.code, p]));
   const sel = { park: null as ParkSummary | null, month: now, region: '', scope: 'np' as 'np' | 'all' };
   const npCount = idx.parks.filter(isNationalPark).length;
   let open: PanelId | null = null;
@@ -53,7 +81,7 @@ export function renderFinder(idx: IndexFile, { now }: FinderOpts): HTMLElement {
   /* ---------- segments ---------- */
   const parkInput = h('input', {
     type: 'text', placeholder: 'Search parks', autocomplete: 'off', spellcheck: 'false',
-    role: 'combobox', 'aria-autocomplete': 'list', 'aria-expanded': 'false', 'aria-controls': 'finder-pop-park', 'aria-label': 'Park',
+    role: 'combobox', 'aria-autocomplete': 'list', 'aria-expanded': 'false', 'aria-controls': `${uid}-pop-park`, 'aria-label': 'Park',
   });
   const clearBtn = h('button', { type: 'button', class: 'finder-clear', 'aria-label': 'Clear park', hidden: true });
   clearBtn.innerHTML = ICON.clear;
@@ -63,12 +91,12 @@ export function renderFinder(idx: IndexFile, { now }: FinderOpts): HTMLElement {
   const scopeVal = h('span', { class: 'seg-value' });
 
   const seg = (id: PanelId, label: string, value: HTMLElement) =>
-    h('button', { type: 'button', class: 'finder-seg', 'data-seg': id, 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-controls': `finder-pop-${id}` },
+    h('button', { type: 'button', class: 'finder-seg', 'data-seg': id, 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-controls': `${uid}-pop-${id}` },
       h('span', { class: 'seg-label' }, label), value);
 
   const parkSeg = h('div', { class: 'finder-seg seg-park', 'data-seg': 'park' },
-    h('label', { class: 'seg-label', for: 'finder-park' }, 'Park'), parkInput, clearBtn);
-  parkInput.id = 'finder-park';
+    h('label', { class: 'seg-label', for: `${uid}-park` }, 'Park'), parkInput, clearBtn);
+  parkInput.id = `${uid}-park`;
   const segs: Record<PanelId, HTMLElement> = {
     park: parkSeg,
     month: seg('month', 'Month', monthVal),
@@ -81,10 +109,10 @@ export function renderFinder(idx: IndexFile, { now }: FinderOpts): HTMLElement {
 
   /* ---------- popovers ---------- */
   const pops: Record<PanelId, HTMLElement> = {
-    park: h('div', { class: 'finder-pop pop-park', id: 'finder-pop-park', role: 'listbox', 'aria-label': 'Parks' }),
-    month: h('div', { class: 'finder-pop pop-month', id: 'finder-pop-month', role: 'dialog', 'aria-label': 'Choose a month' }),
-    region: h('div', { class: 'finder-pop pop-region', id: 'finder-pop-region', role: 'dialog', 'aria-label': 'Choose a region' }),
-    scope: h('div', { class: 'finder-pop pop-scope', id: 'finder-pop-scope', role: 'dialog', 'aria-label': 'Choose park type' }),
+    park: h('div', { class: 'finder-pop pop-park', id: `${uid}-pop-park`, role: 'listbox', 'aria-label': 'Parks' }),
+    month: h('div', { class: 'finder-pop pop-month', id: `${uid}-pop-month`, role: 'dialog', 'aria-label': 'Choose a month' }),
+    region: h('div', { class: 'finder-pop pop-region', id: `${uid}-pop-region`, role: 'dialog', 'aria-label': 'Choose a region' }),
+    scope: h('div', { class: 'finder-pop pop-scope', id: `${uid}-pop-scope`, role: 'dialog', 'aria-label': 'Choose park type' }),
   };
   Object.values(pops).forEach((p) => (p.hidden = true));
 
@@ -101,7 +129,8 @@ export function renderFinder(idx: IndexFile, { now }: FinderOpts): HTMLElement {
   const matches = (q: string): ParkSummary[] => (q.trim() ? matchParks(idx, q) : quietestParks(idx.parks, sel.month, 6));
 
   function renderParkList(): void {
-    const q = parkInput.value;
+    // The field showing the current choice isn't a search: offer suggestions until the user types.
+    const q = sel.park && parkInput.value === label(sel.park) ? '' : parkInput.value;
     options = matches(q);
     active = q.trim() && options.length ? 0 : -1;
     const head = q.trim()
@@ -109,15 +138,15 @@ export function renderFinder(idx: IndexFile, { now }: FinderOpts): HTMLElement {
       : `Quiet in ${MONTHS_LONG[sel.month]}`;
     pops.park.replaceChildren(
       h('p', { class: 'pop-head' }, head),
-      ...options.map((p, i) => optionEl(parkRow(idx, p, q.trim() ? 'kind' : { month: sel.month }), `finder-opt-${i}`,
+      ...options.map((p, i) => optionEl(parkRow(idx, p, q.trim() ? 'kind' : { month: sel.month }), `${uid}-opt-${i}`,
         { active: i === active, current: sel.park?.code === p.code, onPick: () => pickPark(p) })));
     syncActive();
   }
 
   function syncActive(): void {
     pops.park.querySelectorAll('.pop-option').forEach((el, i) => el.setAttribute('aria-selected', String(i === active)));
-    parkInput.setAttribute('aria-activedescendant', active >= 0 ? `finder-opt-${active}` : '');
-    pops.park.querySelector(`#finder-opt-${active}`)?.scrollIntoView({ block: 'nearest' });
+    parkInput.setAttribute('aria-activedescendant', active >= 0 ? `${uid}-opt-${active}` : '');
+    pops.park.querySelector(`#${uid}-opt-${active}`)?.scrollIntoView({ block: 'nearest' });
   }
 
   function pickPark(p: ParkSummary): void {
@@ -255,12 +284,32 @@ export function renderFinder(idx: IndexFile, { now }: FinderOpts): HTMLElement {
       const best = matches(parkInput.value)[0];
       if (best) sel.park = best;
     }
-    if (sel.park) { setState({ view: 'park', park: sel.park.code }); return; }
-    setState({ view: 'when', month: sel.month + 1, region: sel.region, st: '', scope: sel.scope });
+    if (sel.park) setState({ view: 'park', park: sel.park.code });
+    else setState({ view: 'when', month: sel.month + 1, region: sel.region, st: '', scope: sel.scope });
+    onSubmit?.();
   }
 
+  function set(v: FinderValues): void {
+    if (v.month != null) sel.month = v.month;
+    if (v.region != null) sel.region = v.region;
+    if (v.scope) sel.scope = v.scope;
+    if (v.park !== undefined) {
+      sel.park = v.park ? byCode.get(v.park) ?? null : null;
+      parkInput.value = sel.park ? label(sel.park) : '';
+      clearBtn.hidden = !sel.park;
+    }
+    syncValues();
+  }
+
+  if (initial) set(initial);
   syncValues();
-  return form;
+  return {
+    el: form,
+    open: (id) => setOpen(id),
+    isOpen: () => open != null,
+    set,
+    summary: () => ({ park: sel.park ? label(sel.park) : 'Any park', month: MONTHS_LONG[sel.month], region: sel.region || 'Anywhere' }),
+  };
 }
 
 /* ---------- mini US maps (built once, on first open) ---------- */
