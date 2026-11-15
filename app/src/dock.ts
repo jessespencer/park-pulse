@@ -76,9 +76,12 @@ export function mountDock(host: HTMLElement, header: HTMLElement, idx: IndexFile
     if (expanded) { finder.open(open); return; }
     expanded = true;
     const from = pill.getBoundingClientRect();
-    // Desktop: the panel hangs below the header. Phones: the pill has its own row, so the
-    // panel opens right over it and the full search replaces the pill in place.
-    panel.style.top = matchMedia('(max-width: 760px)').matches ? `${from.top - header.getBoundingClientRect().top - 6}px` : '';
+    // Desktop: the panel opens under the logo row, over the nav row. Phones: the pill has its
+    // own row, so the panel opens right over it and the full search replaces the pill in place.
+    const top = header.getBoundingClientRect().top;
+    panel.style.top = matchMedia('(max-width: 760px)').matches
+      ? `${from.top - top - 6}px`
+      : `${header.querySelector('.brand')!.getBoundingClientRect().bottom - top}px`;
     panel.hidden = false; scrim.hidden = false;
     header.classList.add('dock-expanded');
     const dur = durMs('--dur-3');

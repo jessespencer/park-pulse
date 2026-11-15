@@ -150,21 +150,25 @@ body .site-header.scrolled {
 }
 body[data-view="home"] .site-header { border-bottom-color: transparent; }
 .header-inner {
-  padding: 0 clamp(16px, 3vw, 40px); min-height: 68px; /* full bleed, edge to edge */
-  display: flex; flex-wrap: nowrap; align-items: center; gap: 0.5rem 2rem; /* one row on desktop; phones wrap below */
+  /* Full bleed. Row 1: logo | search pill | tools, with equal side columns so the pill sits
+     exactly on the page's center line whatever the side content. Row 2: the nav, centered. */
+  padding: 0 clamp(16px, 3vw, 40px);
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas: "brand dock tools" "nav nav nav";
+  align-items: center; column-gap: 1.5rem;
 }
-.brand { flex: none; display: flex; align-items: center; gap: 0.6rem; text-decoration: none; color: var(--accent); white-space: nowrap; }
+.brand { grid-area: brand; justify-self: start; height: 68px; flex: none; display: flex; align-items: center; gap: 0.6rem; text-decoration: none; color: var(--accent); white-space: nowrap; }
 .brand:hover { color: var(--accent); }
 .brand .emblem { display: block; }
 .brand-name { font: 800 1.4rem/1 var(--font-sign); text-transform: uppercase; letter-spacing: 0.02em; }
-#nav { display: flex; gap: 1.6rem; }
+#nav { grid-area: nav; justify-self: center; display: flex; gap: 2rem; margin-top: -4px; }
 #nav a {
   text-decoration: none; color: var(--muted); font-weight: 500; font-size: 0.9rem; white-space: nowrap;
-  padding: 0.35rem 0; box-shadow: inset 0 -2px 0 transparent;
+  padding: 0.35rem 0 0.75rem; box-shadow: inset 0 -2px 0 transparent;
 }
 #nav a:hover { color: var(--ink); }
 #nav a[aria-current="page"] { color: var(--ink); box-shadow: inset 0 -2px 0 var(--accent); }
-.header-tools { display: flex; gap: 0.6rem; align-items: center; }
+.header-tools { grid-area: tools; justify-self: end; display: flex; gap: 0.6rem; align-items: center; }
 .theme-btn {
   width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
   background: transparent; color: var(--ink); border: 1px solid var(--border); padding: 0;
@@ -188,7 +192,7 @@ main { min-height: 60vh; position: relative; }
  * Compact pill in the header that expands into the full finder (dock.ts). On home it
  * stays hidden while the hero bar is on screen, and the two morph into each other.
  */
-.dock { flex: 1 1 auto; min-width: 0; display: flex; justify-content: center; }
+.dock { grid-area: dock; min-width: 0; display: flex; justify-content: center; }
 .dock-pill {
   display: flex; align-items: center; height: 48px; padding: 0 7px 0 4px; max-width: 100%;
   background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
@@ -236,9 +240,9 @@ body[data-view="home"]:not(.dock-hidden) .hero .finder { opacity: 0; pointer-eve
 .dock-scrim[hidden] { display: none; }
 
 /* Narrower headers: drop the region, then the month, before anything wraps. */
-@media (max-width: 1360px) { .dock-region, .dock-sep-region { display: none; } }
-@media (max-width: 1060px) { .dock-month, .dock-sep { display: none; } .dock-val { max-width: 10rem; } }
-@media (min-width: 761px) and (max-width: 1180px) { .header-inner { column-gap: 1.25rem; } #nav { gap: 1.1rem; } }
+/* The pill owns the center: drop the region, then the month, only when the sides would collide. */
+@media (max-width: 980px) { .dock-region, .dock-sep-region { display: none; } }
+@media (min-width: 761px) and (max-width: 860px) { .dock-month, .dock-sep { display: none; } .dock-val { max-width: 10rem; } }
 
 /* ---------- Buttons / controls ---------- */
 .btn {
@@ -830,26 +834,25 @@ footer a:hover { color: var(--sign-ink); }
 
 /* ---------- Small screens ---------- */
 @media (max-width: 900px) {
-  #nav { gap: 1.1rem; }
+  #nav { gap: 1.4rem; }
 }
 @media (max-width: 760px) {
   body { font-size: 15px; }
   .site-header { position: relative; } /* not sticky on phones, but still anchors the search panel */
-  .header-inner { padding: 0.6rem 16px 0.3rem; min-height: 0; }
-  .header-tools { margin-left: auto; }
+  .header-inner { padding: 0.6rem 16px 0.3rem; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "brand tools" "dock dock" "nav nav"; row-gap: 0.5rem; }
+  .brand { height: auto; }
   .park-picker.field .picker-box { width: 100%; }
   .park-picker.field { display: flex; width: 100%; }
   .brand-name { font-size: 1.2rem; }
-  .header-inner { flex-wrap: wrap; column-gap: 0.75rem; }
   .trail-notes { grid-template-columns: 1fr 1fr; }
-  .dock { order: 3; flex: 1 1 100%; }
   .dock-pill { width: 100%; }
   .dock-pill .dock-park { flex: 1; }
   .dock-month, .dock-sep { display: flex; }
   .dock-sep-region { display: none; }
   .dock-panel { padding: 0.4rem 16px 1rem; }
   body.dock-hidden .dock { display: none; } /* header doesn't stick on phones: home keeps just the hero bar */
-  #nav { order: 4; width: calc(100% + 32px); margin: 0 -16px; padding: 0.2rem 16px 0.3rem; overflow-x: auto; scrollbar-width: none; gap: 1.3rem; }
+  #nav { justify-self: stretch; width: calc(100% + 32px); margin: 0 -16px; padding: 0 16px; overflow-x: auto; scrollbar-width: none; gap: 1.3rem; }
+  #nav a { padding: 0.35rem 0 0.6rem; }
   #nav::-webkit-scrollbar { display: none; }
   .stage { padding: 1.4rem 16px 3rem; }
   .stage-full { padding: 0 0 3rem; }
