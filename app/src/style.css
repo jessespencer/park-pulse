@@ -149,6 +149,13 @@ body .site-header.scrolled {
   box-shadow: 0 1px 0 var(--border), 0 10px 24px -14px rgb(0 0 0 / 0.35);
 }
 body[data-view="home"] .site-header { border-bottom-color: transparent; }
+/* Home, at the top: header and hero are one surface. The header goes clear and the hero's
+   topo and grid run up behind the logo and menu; it turns solid again once you scroll. */
+body[data-view="home"] .site-header:not(.scrolled):not(.dock-expanded) { background: transparent; box-shadow: none; }
+body[data-view="home"] .stage-full > .hero:first-child {
+  margin-top: calc(-1 * var(--header-h, 0px));
+  padding-top: calc(var(--header-h, 0px) + clamp(3.5rem, 10vh, 6rem));
+}
 .header-inner {
   /* Full bleed, one row: logo | search | tools. The side columns are equal, so the search
      sits exactly on the page's center line whatever is on either side. */

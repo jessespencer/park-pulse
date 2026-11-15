@@ -28,7 +28,6 @@ export function mountDock(headerSlot: HTMLElement, header: HTMLElement, idx: Ind
   let desired: Where = 'header';
   let heroSlot: HTMLElement | null = null;
   let heroInView = false;
-  let io: IntersectionObserver | null = null;
   let finishMorph: (() => void) | null = null;
 
   const finder = renderFinder(idx, {
@@ -152,20 +151,28 @@ export function mountDock(headerSlot: HTMLElement, header: HTMLElement, idx: Ind
   }, { capture: true });
 
   /* ---------- home: hero ↔ header as the hero scrolls ---------- */
-  function watchHero(): void {
-    io?.disconnect();
+  // Dock the moment the bar's top edge meets the header's bottom edge, while it is still fully
+  // in view, so it rises straight into the header instead of sliding under it first. It drops
+  // back only once there is clear room in the hero; the gap between the two stops flicker.
+  const DOCK_AT = 8, UNDOCK_AT = 32;
+  const gap = () => (heroSlot ? heroSlot.getBoundingClientRect().top - header.getBoundingClientRect().bottom : -1);
+  let ticking = false;
+  function checkHero(): void {
+    ticking = false;
     if (!heroSlot) return;
-    io = new IntersectionObserver(([en]) => {
-      heroInView = en.isIntersecting;
-      if (where === 'panel') return;                 // the panel decides on collapse
-      if (isPhone()) { place('hero', false); return; } // header doesn't stick on phones
-      place(heroInView ? 'hero' : 'header', true);
-    }, { rootMargin: `-${Math.round(header.getBoundingClientRect().height)}px 0px 0px 0px`, threshold: 0 });
-    io.observe(heroSlot);
+    const g = gap();
+    if (where === 'panel') { heroInView = g > UNDOCK_AT; return; } // the panel decides on collapse
+    if (isPhone()) { heroInView = true; place('hero', false); return; } // header doesn't stick on phones
+    if (where === 'hero' && g < DOCK_AT) place('header', true);
+    else if (where === 'header' && g > UNDOCK_AT) place('hero', true);
+    heroInView = where === 'hero' ? g >= DOCK_AT : g > UNDOCK_AT;
   }
+  const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(checkHero); } };
+  addEventListener('scroll', onScroll, { passive: true });
+  addEventListener('resize', onScroll);
 
   // Dev only: lets tooling trigger and step moves when the page gets no frames (hidden tab).
-  if (import.meta.env.DEV) (window as unknown as { __sbar: unknown }).__sbar = { place, bar, where: () => where };
+  if (import.meta.env.DEV) (window as unknown as { __sbar: unknown }).__sbar = { place, bar, where: () => where, check: checkHero };
 
   return {
     update(s: AppState) {
@@ -178,11 +185,10 @@ export function mountDock(headerSlot: HTMLElement, header: HTMLElement, idx: Ind
       const slot = s.view === 'home' ? document.querySelector<HTMLElement>('.stage:not(.is-pending) .sbar-slot') : null;
       if (slot !== heroSlot) {
         heroSlot = slot;
-        heroInView = !!slot && slot.getBoundingClientRect().bottom > header.getBoundingClientRect().bottom;
+        heroInView = !!slot && gap() >= DOCK_AT;
       }
-      // A new page settles the bar where it belongs, without motion; the hero watcher animates from here on.
+      // A new page settles the bar where it belongs, without motion; scrolling animates from here on.
       place(heroSlot && (heroInView || isPhone()) ? 'hero' : 'header', false);
-      watchHero();
     },
   };
 }
