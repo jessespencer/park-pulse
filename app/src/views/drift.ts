@@ -2,7 +2,7 @@ import * as d3 from 'd3';
 import { MONTHS, MONTHS_LONG, fmtPct, loadIndex, loadPark, type ParkDetail } from '../data';
 import { sequentialInterpolator } from '../scales';
 import { setState, type AppState } from '../state';
-import { parkPicker } from '../parkPicker';
+import { parkPage } from './parkHeader';
 import { renderPickPark } from './pickPark';
 import { errorBox, fill, h, loading } from '../ui';
 
@@ -41,7 +41,7 @@ export async function renderDrift(root: HTMLElement, s: AppState): Promise<void>
     });
     return;
   }
-  const [idx, park] = await Promise.all([loadIndex(), loadPark(s.park).catch(() => null)]);
+  const park = await loadPark(s.park).catch(() => null);
   if (!park) {
     fill(root, errorBox(`No visitation data for park code “${s.park}”.`));
     return;
@@ -60,10 +60,8 @@ export async function renderDrift(root: HTMLElement, s: AppState): Promise<void>
     ? `${peakText(first, last)} The busy season went from ${seasonText(first.profile)} in the ${first.label} to ${seasonText(last.profile)} in the ${last.label}.`
     : 'Not enough complete years to compare decades.';
 
-  fill(root, 
-    h('section', { class: 'view-head' },
-      h('div', {}, h('p', { class: 'eyebrow dark' }, 'Season drift'), h('h1', { class: 'display-2' }, park.shortName || park.name), h('p', { class: 'lead' }, summary)),
-      parkPicker(idx, { context: { kind: 'drift' }, label: 'Change park', value: park.code, includeNational: true, onPick: (v) => setState({ park: v }) })),
+  fill(root, ...parkPage(park, 'drift',
+    h('p', { class: 'lead drift-lead' }, summary),
     h('h2', {}, 'Average monthly shape by decade'),
     h('p', { class: 'muted' }, 'Share of the year’s visits in each month, averaged over complete years in each decade (2020 excluded). The dashed line is an average month.'),
     lines,
@@ -71,7 +69,7 @@ export async function renderDrift(root: HTMLElement, s: AppState): Promise<void>
     h('p', { class: 'muted' }, 'Bars mark the busy season (months busier than an average month); the dot is the peak month. Hatched years are incomplete, or 2020.'),
     strip,
     table,
-  );
+  ));
   drawLines(lines, ds);
   drawStrip(strip, park);
 }

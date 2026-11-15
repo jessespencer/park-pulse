@@ -29,26 +29,9 @@ export function renderPickPark(root: HTMLElement, idx: IndexFile, o: PickOpts): 
   const popular = nps.filter((p) => p.latestAnnual != null)
     .sort((a, b) => b.latestAnnual! - a.latestAnnual!).slice(0, PER_ROW);
   const offPeak = quietestParks(idx.parks.filter(ok), now, PER_ROW);
-  // One bar scale for every card, so a tall spike means the same thing everywhere.
-  const yMax = d3.quantile(nps.map((p) => d3.max(p.profile!)!).sort(d3.ascending), 0.95) ?? 0.25;
-
+  const yMax = signScale(idx);
   let n = 0;
-  const card = (p: ParkSummary, stat: string) => {
-    const peak = p.peakMonth ? MONTHS[p.peakMonth - 1] : null;
-    return h('button', {
-      type: 'button', class: 'sign-card', style: `--i:${n++}`, onclick: () => o.onPick(p.code),
-      'aria-label': `${parkTitle(idx, p)}, ${stateLine(p.states)}. ${stat}${peak ? `, peak in ${MONTHS_LONG[p.peakMonth! - 1]}` : ''}`,
-    },
-    topo({ seed: seedOf(p.code), scale: 220, levels: 14 }),
-    h('span', { class: 'sign-card-top' },
-      h('span', { class: 'eyebrow' }, stateLine(p.states)),
-      h('span', { class: 'sign-card-name' }, parkTitle(idx, p))),
-    h('span', { class: 'sign-card-year' },
-      miniFingerprint(p.profile!, yMax, now, 120, 34),
-      h('span', { class: 'sign-card-axis', 'aria-hidden': 'true' },
-        ...MONTHS.map((m, i) => h('span', { class: i === now ? 'now' : undefined }, m[0])))),
-    h('span', { class: 'sign-card-stat' }, h('span', {}, stat), peak ? h('span', { class: 'sign-card-peak' }, `Peak ${peak}`) : null));
-  };
+  const card = (p: ParkSummary, stat: string) => signCard(idx, p, { yMax, now, stat, i: n++, onPick: o.onPick });
 
   const group = (head: string, sub: string, cards: HTMLElement[]) => cards.length
     ? h('section', { class: 'pick-group' },
@@ -68,4 +51,27 @@ export function renderPickPark(root: HTMLElement, idx: IndexFile, o: PickOpts): 
     group(`Off-peak in ${MONTHS_LONG[now]}`, `Open national parks with the lowest share of their year in ${MONTHS_LONG[now]}.`,
       offPeak.map((p) => card(p, `${fmtPct(p.profile![now], 1)} of its year in ${MONTHS[now]}`))),
   );
+}
+
+/** One bar scale for every card, so a tall spike means the same thing everywhere. */
+export const signScale = (idx: IndexFile): number =>
+  d3.quantile(idx.parks.filter((p) => isNationalPark(p) && p.profile).map((p) => d3.max(p.profile!)!).sort(d3.ascending), 0.95) ?? 0.25;
+
+/** A small park sign: contours, name, typical year with `now` highlighted, a stat and the peak month. */
+export function signCard(idx: IndexFile, p: ParkSummary, { yMax, now, stat, i = 0, onPick }:
+  { yMax: number; now: number; stat: string; i?: number; onPick: (code: string) => void }): HTMLElement {
+  const peak = p.peakMonth ? MONTHS[p.peakMonth - 1] : null;
+  return h('button', {
+    type: 'button', class: 'sign-card', style: `--i:${i}`, onclick: () => onPick(p.code),
+    'aria-label': `${parkTitle(idx, p)}, ${stateLine(p.states)}. ${stat}${peak ? `, peak in ${MONTHS_LONG[p.peakMonth! - 1]}` : ''}`,
+  },
+  topo({ seed: seedOf(p.code), scale: 220, levels: 14 }),
+  h('span', { class: 'sign-card-top' },
+    h('span', { class: 'eyebrow' }, stateLine(p.states)),
+    h('span', { class: 'sign-card-name' }, parkTitle(idx, p))),
+  h('span', { class: 'sign-card-year' },
+    miniFingerprint(p.profile!, yMax, now, 120, 34),
+    h('span', { class: 'sign-card-axis', 'aria-hidden': 'true' },
+      ...MONTHS.map((m, i) => h('span', { class: i === now ? 'now' : undefined }, m[0])))),
+  h('span', { class: 'sign-card-stat' }, h('span', {}, stat), peak ? h('span', { class: 'sign-card-peak' }, `Peak ${peak}`) : null));
 }

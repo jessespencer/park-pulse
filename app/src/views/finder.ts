@@ -11,7 +11,8 @@ import statesTopo from 'us-atlas/states-10m.json';
 import { MONTHS_LONG, REGIONS, STATE_NAMES, isNationalPark, type IndexFile, type ParkSummary } from '../data';
 import { quietestParks } from '../insights';
 import { PICKER_ICON, matchParks, optionEl, parkRow, parkTitle } from '../parkPicker';
-import { setState } from '../state';
+import { getState, setState } from '../state';
+import { isParkView } from './parkHeader';
 import { h } from '../ui';
 
 type PanelId = 'park' | 'month' | 'region' | 'scope';
@@ -172,7 +173,11 @@ export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onS
     go.focus();
   }
 
-  parkInput.addEventListener('focus', () => setOpen('park'));
+  // Holding a park, the field selects its name on focus, so typing replaces it instead of appending.
+  let selectedOnFocus = false;
+  parkInput.addEventListener('focus', () => { setOpen('park'); if (sel.park) { parkInput.select(); selectedOnFocus = true; } });
+  // The click that focused the field would otherwise drop the selection on mouseup.
+  parkInput.addEventListener('mouseup', (e) => { if (selectedOnFocus) e.preventDefault(); selectedOnFocus = false; });
   parkInput.addEventListener('input', () => {
     sel.park = null;
     clearBtn.hidden = !parkInput.value;
@@ -305,12 +310,14 @@ export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onS
   document.addEventListener('keydown', onKey);
 
   function submit(): void {
-    setOpen(null);
     if (!sel.park && parkInput.value.trim()) {
       const best = matches(parkInput.value)[0];
-      if (best) sel.park = best;
+      if (!best) { setOpen('park'); return; } // show "No parks match" rather than an unrelated search
+      sel.park = best;
     }
-    if (sel.park) setState({ view: 'park', park: sel.park.code });
+    setOpen(null);
+    // A park search keeps you on the same park tab (Season drift stays Season drift).
+    if (sel.park) setState({ view: isParkView(getState().view) ? getState().view : 'park', park: sel.park.code });
     else setState({ view: 'when', month: sel.month + 1, region: sel.region, st: '', scope: sel.scope });
     onSubmit?.();
   }

@@ -7,7 +7,8 @@ import './style.css';
 import { emblem, paintTopo, topo } from './art';
 import { loadIndex } from './data';
 import { mountDock, type Dock } from './dock';
-import { PAGES, pageLabel } from './pages';
+import { PAGES, menuPage, pageLabel } from './pages';
+import { isParkView } from './views/parkHeader';
 import { getState, setState, subscribe, type AppState, type View } from './state';
 import { hideTooltip } from './tooltip';
 import { durMs, errorBox, fmtDate, h, reduceMotion } from './ui';
@@ -27,6 +28,7 @@ const nav = document.getElementById('nav')!;
 let renderSeq = 0;
 /** The page a render belongs to; entrance motion plays only when this changes, not on filter tweaks. */
 let pageKey = '';
+let pageView: View | '' = '';
 let dock: Dock | null = null;
 
 function renderNav(s: AppState): void {
@@ -35,11 +37,11 @@ function renderNav(s: AppState): void {
     icon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${v.icon}"/></svg>`;
     return h('a', {
       href: `?view=${v.id}`,
-      'aria-current': v.id === s.view ? 'page' : undefined,
+      'aria-current': v.id === menuPage(s.view) ? 'page' : undefined,
       onclick: (e: Event) => { e.preventDefault(); setMenu(false); setState({ view: v.id }); },
     }, icon, h('span', { class: 'menu-text' }, h('span', { class: 'menu-title' }, v.label), h('span', { class: 'menu-blurb' }, v.blurb)));
   }));
-  menuLabel.textContent = s.view === 'home' ? 'Explore' : pageLabel(s.view);
+  menuLabel.textContent = s.view === 'home' ? 'Explore' : pageLabel(menuPage(s.view));
 }
 
 /* ---------- Menu (the views live here, so the header stays one row with the search centered) ---------- */
@@ -75,9 +77,12 @@ async function render(s: AppState, opts: { scrollTop?: boolean } = {}): Promise<
   renderNav(s);
   document.title = s.view === 'home' ? 'Park Pulse: busy seasons at U.S. national parks' : `${pageLabel(s.view)} · Park Pulse`;
   document.body.dataset.view = s.view;
-  const key = `${s.view}:${s.view === 'compare' ? `${s.a}|${s.b}` : s.view === 'park' || s.view === 'drift' ? s.park : ''}`;
+    // A park's tabs are one page: switching tabs swaps only the tab body (see .is-tab-enter).
+  const key = isParkView(s.view) && s.park ? `park:${s.park}` : s.view;
   const entering = key !== pageKey;
+  const tabSwitch = !entering && isParkView(s.view) && s.view !== pageView;
   pageKey = key;
+  pageView = s.view;
   const stage = h('div', { class: s.view === 'home' ? 'stage stage-full' : 'stage' });
   // Build the next page in the document (charts measure their width) but hidden, and keep
   // the current page on screen until it's ready: no flash of an empty "Loading…" page with
@@ -92,10 +97,17 @@ async function render(s: AppState, opts: { scrollTop?: boolean } = {}): Promise<
   }
   clearTimeout(slow);
   if (seq !== renderSeq) { stage.remove(); return; }
-  app.querySelectorAll(':scope > .stage').forEach((el) => el !== stage && el.remove());
+  // Show the new page before removing the old one, so the document never collapses and resets the scroll.
   stage.classList.remove('is-pending');
+  app.querySelectorAll(':scope > .stage').forEach((el) => el !== stage && el.remove());
   if (entering) stage.classList.add('is-enter'); // entrance starts at the swap, not while hidden
-  if (opts.scrollTop) scrollTo({ top: 0 });
+  if (tabSwitch) {
+    stage.classList.add('is-tab-enter');
+    // Keep the reader's place, unless the tabs have scrolled away: then bring them back under the header.
+    const tabs = stage.querySelector<HTMLElement>('.park-tabs');
+    const headerH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-h')) || 0;
+    if (tabs && tabs.getBoundingClientRect().top < headerH) scrollTo({ top: tabs.getBoundingClientRect().top + scrollY - headerH });
+  } else if (opts.scrollTop) scrollTo({ top: 0 });
   paintTopo();
   dock?.update(s);
 }
@@ -151,6 +163,9 @@ addEventListener('resize', () => {
   resizeTimer = window.setTimeout(() => void render(getState()), 150);
 });
 
+// render() decides where each page starts (top, or the park tabs), so the browser shouldn't restore on Back.
+history.scrollRestoration = 'manual';
+
 async function boot(): Promise<void> {
   document.getElementById('brand-mark')!.innerHTML = emblem(28);
   syncHeaderHeight();
@@ -182,7 +197,7 @@ async function boot(): Promise<void> {
   let prev = getState();
   subscribe((s) => {
     // A new page scrolls to the top once it has swapped in, not before.
-    void render(s, { scrollTop: s.view !== prev.view || s.park !== prev.park });
+    void render(s, { scrollTop: s.park !== prev.park || (s.view !== prev.view && !(isParkView(s.view) && isParkView(prev.view))) });
     prev = s;
   });
   await render(getState());

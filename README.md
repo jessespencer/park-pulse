@@ -9,12 +9,13 @@ across the National Park System as calendar heatmaps, 1979–2025.
 
 - **Home**. A park / month / region / type search, this month's off-peak and peak-season national parks, and a way into each page.
 - **When to go.** Pick a month and optionally a region or state to get a map and a ranked list of parks at their least busy. Parks are ranked by *share of year*: the part of each park's annual visits that falls in that month. A low share means a park's slow season, not necessarily a small crowd, so each card also shows a visit estimate.
-- **Park profile.** One park's peak month, slow months and busy season, a typical-year chart, and a heatmap of every month since 1979 (rows are years, columns are months). Color can show visits, share of year, or visits vs. usual. Shutdowns and closures are flagged.
-- **Fingerprints.** Each park's typical year. Sort by peak month, busiest 3 months (their share of the year's visits), or total visits.
-- **Season drift.** How one park's peak month and busy season moved from decade to decade.
-- **Compare.** Two parks' heatmaps side by side; pointing at a month shows both parks' counts.
+- **Park profile.** Everything about one park, under its entrance sign, in three tabs:
+  - *Overview*: peak month, slow months and busy season, a typical-year chart, and a heatmap of every month since 1979 (rows are years, columns are months). Color can show visits, share of year, or visits vs. usual. Shutdowns and closures are flagged.
+  - *Season drift*: how the park's peak month and busy season moved from decade to decade.
+  - *Compare*: the park's heatmap beside a second park's, picked on the same page; pointing at a month shows both parks' counts.
 
-Park profile, Season drift and Compare open on a park search with suggestions until a park is chosen; there's no default park.
+  Until a park is chosen, Park profile opens on a park search with suggestions; there's no default park.
+- **Fingerprints.** Every national park's typical year, side by side. Sort by peak month, busiest 3 months (their share of the year's visits), or total visits.
 
 Every selection lives in the URL, so any view can be shared as a link.
 

@@ -10,6 +10,7 @@ import { NATIONAL, type IndexFile } from './data';
 import type { AppState } from './state';
 import { renderFinder, type FinderHandle } from './views/finder';
 import { durMs, reduceMotion } from './ui';
+import { isParkView } from './views/parkHeader';
 
 const EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
 export interface Dock { update: (s: AppState) => void }
@@ -81,7 +82,7 @@ export function mountDock(headerSlot: HTMLElement, header: HTMLElement, idx: Ind
   return {
     update(s: AppState) {
       pill.set({
-        park: (s.view === 'park' || s.view === 'drift') && s.park !== NATIONAL ? s.park : null,
+        park: isParkView(s.view) && s.park && s.park !== NATIONAL ? s.park : null,
         // Month and region are search inputs, not filters on this page: show them as placeholders
         // everywhere except When to go, where they mirror the page.
         month: s.view === 'when' ? s.month - 1 : null,

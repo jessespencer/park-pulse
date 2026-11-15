@@ -1,15 +1,12 @@
 import * as d3 from 'd3';
-import { contourRule, topo } from '../art';
-import { MONTHS, MONTHS_LONG, NATIONAL, fmtInt, fmtPct, loadIndex, loadPark, stateLine, type ParkDetail } from '../data';
+import { MONTHS, MONTHS_LONG, NATIONAL, fmtPct, loadIndex, loadPark, type ParkDetail } from '../data';
 import { renderHeatmap } from '../heatmap';
 import { busyMonths, monthSpan, quietMonths } from '../insights';
 import { setState, type AppState } from '../state';
 import { hideTooltip, showTooltip } from '../tooltip';
+import { parkPage } from './parkHeader';
 import { renderPickPark } from './pickPark';
-import { countUp, errorBox, fill, h, loading, modeToggle } from '../ui';
-
-/** Last visit total shown on the sign, so switching parks ticks from it. */
-let lastVisits: number | null = null;
+import { errorBox, fill, h, loading, modeToggle } from '../ui';
 
 const KIND_LABEL = { shutdown: 'Shutdown', covid: 'COVID-19', data: 'Data note' } as const;
 
@@ -32,27 +29,6 @@ export async function renderPark(root: HTMLElement, s: AppState): Promise<void> 
   const legend = h('div', { class: 'legend' });
   const heat = h('div', {});
 
-  // Entrance sign
-  const visitsEl = h('b', {}, park.latestAnnual != null ? fmtInt(park.latestAnnual) : String(park.firstYear));
-  if (park.latestAnnual != null) {
-    if (lastVisits != null) countUp(visitsEl, lastVisits, park.latestAnnual, fmtInt);
-    lastVisits = park.latestAnnual;
-  }
-  const seed = [...park.code].reduce((a, c) => a * 31 + c.charCodeAt(0), 7);
-  const eyebrow = [
-    !isNat && !['Unknown', 'Other', 'Not in NPS API'].includes(park.designation) ? park.designation : null,
-    stateLine(park.states),
-  ].filter(Boolean).join(' · ');
-  const sign = h('section', { class: 'park-sign' },
-    topo({ seed, scale: 440, levels: 20, grid: 160 }),
-    h('div', { class: 'sign-text' },
-      h('p', { class: 'eyebrow' }, eyebrow || 'National Park System'),
-      h('h1', {}, isNat ? 'All park units' : park.shortName && park.shortName !== park.name ? park.shortName : park.name),
-      isNat || park.shortName === park.name ? null : h('p', { class: 'sign-sub' }, park.name)),
-    h('div', { class: 'sign-stat' },
-      h('p', { class: 'eyebrow' }, park.latestAnnual != null ? `${park.lastYear} visits` : `Counted since ${park.firstYear}`),
-      visitsEl));
-
   // Trail notes: the answer before the detail.
   const notes = h('dl', { class: 'trail-notes' });
   const note = (label: string, value: string, hint?: string) =>
@@ -68,12 +44,7 @@ export async function renderPark(root: HTMLElement, s: AppState): Promise<void> 
   const ribbon = h('div', { class: 'ribbon-wrap' });
   const breaks = park.notes.filter((n) => n.year >= park.firstYear);
 
-  fill(root,
-    sign,
-    h('div', { class: 'park-tools' },
-      !isNat && h('a', { class: 'chip-link', href: `?view=drift&park=${park.code}`, onclick: (e: Event) => { e.preventDefault(); setState({ view: 'drift' }); } }, 'Season drift'),
-      !isNat && h('a', { class: 'chip-link', href: `?view=compare&a=${park.code}`, onclick: (e: Event) => { e.preventDefault(); setState({ view: 'compare', a: park.code, b: '' }); } }, 'Compare with another park')),
-    notes.childElementCount ? contourRule() : null,
+  fill(root, ...parkPage(park, 'park',
     notes.childElementCount ? notes : null,
     park.profile && h('section', { class: 'section tight' },
       h('h2', { class: 'section-title' }, 'A typical year'),
@@ -95,7 +66,7 @@ export async function renderPark(root: HTMLElement, s: AppState): Promise<void> 
         h('a', { href: `https://irma.nps.gov/Stats/Reports/Park/${park.code}`, target: '_blank', rel: 'noopener' },
           'Visitor Use Counting Procedures on IRMA'),
         ' before reading a sudden jump as a real change.')),
-  );
+  ));
   if (park.profile) drawRibbon(ribbon, park);
   renderHeatmap(heat, park, s.mode, { legendHost: legend });
 }
