@@ -81,6 +81,19 @@ CROSSWALK: dict[str, dict] = {
 }
 
 
+SMALL_WORDS = {"of", "the", "and", "in", "at", "on", "for", "to"}  # not "a": it is an initial ("James A Garfield")
+
+
+def tidy_name(name: str | None) -> str | None:
+    """The NPS API capitalizes every word ("Gates Of The Arctic"); lowercase the small ones
+    except at the start of the name or after a comma ("Arlington House, The Robert E. Lee ...")."""
+    if not name:
+        return name
+    words = name.split(" ")
+    return " ".join(w.lower() if i and w.lower() in SMALL_WORDS and not words[i - 1].endswith(",") else w
+                    for i, w in enumerate(words))
+
+
 def park_meta(code: str, meta: dict, has_meta: bool) -> dict:
     """Name/designation/states/location for a visitation unit (see CROSSWALK)."""
     if not has_meta:
@@ -88,11 +101,11 @@ def park_meta(code: str, meta: dict, has_meta: bool) -> dict:
                 "states": [], "lat": None, "lon": None}
     cw = CROSSWALK.get(code, {})
     row = meta.get(cw.get("api", code))
-    name = cw.get("name") or (row[1] if row else None) or code
+    name = cw.get("name") or tidy_name(row[1] if row else None) or code
     return {
         "code": code,
         "name": name,
-        "shortName": cw.get("short") or (None if "name" in cw else (row[2] if row else None)) or name,
+        "shortName": cw.get("short") or (None if "name" in cw else tidy_name(row[2] if row else None)) or name,
         "designation": cw.get("designation") or (row[3] if row else None) or ("Other" if row else "Not in NPS API"),
         "states": [s for s in ((row[4] if row else "") or "").split(",") if s],
         "lat": float(row[5]) if row and row[5] else None,
