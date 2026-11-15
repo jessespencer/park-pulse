@@ -6,7 +6,10 @@ import { busyMonths, monthSpan, quietMonths } from '../insights';
 import { setState, type AppState } from '../state';
 import { hideTooltip, showTooltip } from '../tooltip';
 import { parkPicker } from '../parkPicker';
-import { errorBox, fill, h, loading, modeToggle } from '../ui';
+import { countUp, errorBox, fill, h, loading, modeToggle } from '../ui';
+
+/** Last visit total shown on the sign, so switching parks ticks from it. */
+let lastVisits: number | null = null;
 
 const KIND_LABEL = { shutdown: 'Shutdown', covid: 'COVID-19', data: 'Data note' } as const;
 
@@ -22,6 +25,11 @@ export async function renderPark(root: HTMLElement, s: AppState): Promise<void> 
   const heat = h('div', {});
 
   // Entrance sign
+  const visitsEl = h('b', {}, park.latestAnnual != null ? fmtInt(park.latestAnnual) : String(park.firstYear));
+  if (park.latestAnnual != null) {
+    if (lastVisits != null) countUp(visitsEl, lastVisits, park.latestAnnual, fmtInt);
+    lastVisits = park.latestAnnual;
+  }
   const seed = [...park.code].reduce((a, c) => a * 31 + c.charCodeAt(0), 7);
   const eyebrow = [
     !isNat && !['Unknown', 'Other', 'Not in NPS API'].includes(park.designation) ? park.designation : null,
@@ -35,7 +43,7 @@ export async function renderPark(root: HTMLElement, s: AppState): Promise<void> 
       isNat || park.shortName === park.name ? null : h('p', { class: 'sign-sub' }, park.name)),
     h('div', { class: 'sign-stat' },
       h('p', { class: 'eyebrow' }, park.latestAnnual != null ? `${park.lastYear} visits` : `Counted since ${park.firstYear}`),
-      h('b', {}, park.latestAnnual != null ? fmtInt(park.latestAnnual) : String(park.firstYear))));
+      visitsEl));
 
   // Trail notes: the answer before the detail.
   const notes = h('dl', { class: 'trail-notes' });
@@ -97,6 +105,7 @@ function drawRibbon(host: HTMLElement, park: ParkDetail): void {
     .attr('role', 'img').attr('aria-label', `Typical year: peak in ${MONTHS_LONG[peak]}`);
   svg.append('g').selectAll('rect').data(p).join('rect')
     .attr('class', (_, i) => (i === peak ? 'rib-bar peak' : i === quiet ? 'rib-bar quiet' : 'rib-bar'))
+    .style('--i', (_, i) => String(i))
     .attr('x', (_, i) => x(i)!).attr('width', x.bandwidth())
     .attr('y', (v) => y(v)).attr('height', (v) => Math.max(y(0) - y(v), 1)).attr('rx', 4)
     .on('pointerenter pointermove', (ev: PointerEvent, v) => {

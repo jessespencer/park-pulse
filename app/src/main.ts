@@ -29,6 +29,8 @@ const VIEWS: { id: View; label: string; nav: boolean; render: (root: HTMLElement
 const app = document.getElementById('app')!;
 const nav = document.getElementById('nav')!;
 let renderSeq = 0;
+/** The page a render belongs to; entrance motion plays only when this changes, not on filter tweaks. */
+let pageKey = '';
 
 function renderNav(s: AppState): void {
   nav.replaceChildren(...VIEWS.filter((v) => v.nav).map((v) => h('a', {
@@ -46,7 +48,10 @@ async function render(s: AppState): Promise<void> {
   document.title = s.view === 'home' ? 'Park Pulse — beat the crowds' : `${view.label} · Park Pulse`;
   document.body.dataset.view = s.view;
   // Render into a fresh node so a slow, superseded render can't clobber a newer one.
-  const stage = h('div', { class: s.view === 'home' ? 'stage stage-full' : 'stage' });
+  const key = `${s.view}:${s.view === 'compare' ? `${s.a}|${s.b}` : s.view === 'park' || s.view === 'drift' ? s.park : ''}`;
+  const entering = key !== pageKey;
+  pageKey = key;
+  const stage = h('div', { class: `${s.view === 'home' ? 'stage stage-full' : 'stage'}${entering ? ' is-enter' : ''}` });
   app.replaceChildren(stage);
   try {
     await view.render(stage, s);

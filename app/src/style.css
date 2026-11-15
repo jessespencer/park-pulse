@@ -52,6 +52,13 @@
   --shadow: 0 10px 30px -14px rgb(29 36 32 / 0.28);
   --shadow-sm: 0 1px 2px rgb(29 36 32 / 0.06);
 
+  /* Motion (ported from 24-hours): short, ease-out, and only where it carries meaning. */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --dur-1: 120ms;
+  --dur-2: 220ms;
+  --dur-3: 420ms;
+
   --font-display: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
   --font-sign: 'Grenze', 'Iowan Old Style', Georgia, serif;
   --font-ui: 'Public Sans Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -133,7 +140,7 @@ svg.topo path.grid { stroke: var(--topo-grid, var(--contour-grid)); stroke-width
 .site-header {
   position: sticky; top: 0; z-index: 20;
   background: var(--bg); border-bottom: 1px solid var(--border);
-  transition: background-color 0.2s, box-shadow 0.2s, border-color 0.2s;
+  transition: background-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out), border-color var(--dur-2);
 }
 /* Once the page scrolls, lift the header off the content beneath it. */
 body .site-header.scrolled {
@@ -188,13 +195,38 @@ main { min-height: 60vh; }
   padding: 0.5rem 2rem 0.5rem 0.85rem; border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
   max-width: 22rem; font-size: 0.92rem; font-weight: 500; color: var(--ink); box-shadow: var(--shadow-sm);
 }
-.check { font-size: 0.88rem; display: inline-flex; gap: 0.45rem; align-items: center; cursor: pointer; }
-.check input { accent-color: var(--accent); width: 1rem; height: 1rem; }
 
-.segmented { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); }
-.segmented button { background: transparent; border: 0; padding: 0.38rem 0.9rem; border-radius: 999px; cursor: pointer; font-weight: 500; font-size: 0.86rem; color: var(--muted); }
+.segmented { position: relative; display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); }
+.segmented button {
+  position: relative; z-index: 1; background: transparent; border: 0; padding: 0.38rem 0.9rem; border-radius: 999px;
+  cursor: pointer; font-weight: 500; font-size: 0.86rem; color: var(--muted); transition: color var(--dur-2) var(--ease-out);
+}
 .segmented button:hover { color: var(--ink); }
-.segmented button.active { background: var(--btn-bg); color: var(--btn-ink); }
+.segmented button.active { color: var(--btn-ink); }
+.segmented:not(.is-ready) button.active { background: var(--btn-bg); } /* until the pill is measured */
+.seg-indicator {
+  position: absolute; top: 3px; bottom: 3px; left: 3px; width: 0; border-radius: 999px; background: var(--btn-bg);
+}
+.seg-indicator.is-moving { transition: left var(--dur-3) var(--ease-spring), width var(--dur-3) var(--ease-spring); }
+.segmented:not(.is-ready) .seg-indicator { opacity: 0; }
+
+/* Switch (role="switch"): the thumb springs across. */
+.switch {
+  display: inline-flex; align-items: center; gap: 0.6rem; padding: 0.2rem 0; border: 0; background: transparent;
+  cursor: pointer; color: var(--muted); font-size: 0.88rem; font-weight: 500; text-align: left;
+}
+.switch-track {
+  position: relative; flex: none; width: 38px; height: 22px; border-radius: 999px;
+  background: var(--border-strong); transition: background-color var(--dur-2) var(--ease-out);
+}
+.switch-thumb {
+  position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--surface); box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+  transition: transform var(--dur-2) var(--ease-spring), background-color var(--dur-2);
+}
+.switch[aria-checked="true"] { color: var(--ink); }
+.switch[aria-checked="true"] .switch-track { background: var(--btn-bg); }
+.switch[aria-checked="true"] .switch-thumb { transform: translateX(16px); background: var(--btn-ink); }
 
 .chips { display: flex; flex-wrap: wrap; gap: 0.45rem; }
 .chip {
@@ -257,6 +289,7 @@ main { min-height: 60vh; }
   transition: background-color 0.2s;
 }
 .finder.is-open .finder-bar { background: var(--finder-dim); }
+/* Segment lift eases in (no spring). */
 .finder-seg {
   position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 0.1rem;
   min-height: 56px; padding: 0.45rem 1.4rem; border-radius: 999px; border: 0; background: transparent;
@@ -297,7 +330,7 @@ main { min-height: 60vh; }
   background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 28px;
   box-shadow: 0 24px 60px -18px rgb(0 0 0 / 0.35), 0 2px 8px rgb(0 0 0 / 0.06);
   padding: 1.4rem 1.5rem 1.5rem; max-height: min(70vh, 560px); overflow: auto; overscroll-behavior: contain;
-  animation: pop-in 0.16s ease-out;
+  animation: pop-in var(--dur-2) var(--ease-out);
 }
 .finder-pop[hidden] { display: none; }
 @keyframes pop-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
@@ -631,6 +664,96 @@ footer a { color: var(--sign-ink); }
 footer a:hover { color: var(--sign-ink); }
 
 .loading { padding: 2rem 0; }
+
+/* ---------- Motion ----------
+ * Ported from 24-hours. Every duration is a token, so prefers-reduced-motion
+ * switches all of it off at once. Entrances use fill-mode `backwards` (not
+ * `both`) so finished animations leave no transform behind: a lingering one
+ * would trap the finder popovers under the tiles.
+ */
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+@keyframes fade { from { opacity: 0; } }
+@keyframes pop { 0% { transform: scale(0.9); opacity: 0.6; } 60% { transform: scale(1.04); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes wipe { from { clip-path: inset(-24px 100% -24px -80px); } to { clip-path: inset(-24px -24px -24px -80px); } }
+@keyframes wipe-down { from { clip-path: inset(0 -40px 100% -80px); } to { clip-path: inset(0 -40px 0 -80px); } }
+@keyframes grow { from { transform: scaleY(0); } }
+@keyframes turn-in { from { transform: rotate(-90deg) scale(0.6); opacity: 0; } }
+@keyframes breathe { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); } 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 0%, transparent); } }
+
+/* A new page rises in, in reading order. Filter tweaks re-render without it. */
+.stage.is-enter > * { animation: rise var(--dur-3) var(--ease-out) backwards; }
+.stage.is-enter > :nth-child(2) { animation-delay: 60ms; }
+.stage.is-enter > :nth-child(3) { animation-delay: 120ms; }
+.stage.is-enter > :nth-child(4) { animation-delay: 170ms; }
+.stage.is-enter > :nth-child(5) { animation-delay: 210ms; }
+.stage.is-enter > :nth-child(n+6) { animation-delay: 240ms; }
+.stage.is-enter .hero { animation: none; }
+.stage.is-enter .hero-inner > * { animation: rise var(--dur-3) var(--ease-out) backwards; }
+.stage.is-enter .hero-inner > :nth-child(2) { animation-delay: 70ms; }
+.stage.is-enter .hero-inner > :nth-child(3) { animation-delay: 140ms; }
+.stage.is-enter .hero > svg.topo { animation: fade calc(var(--dur-3) * 2) var(--ease-out) backwards; }
+.stage.is-enter .hero-cue { animation: fade var(--dur-3) var(--ease-out) 420ms backwards; }
+
+/* Charts draw themselves: the year left to right, the record top to bottom. */
+.stage.is-enter .rib-bar { transform-box: fill-box; transform-origin: bottom; animation: grow var(--dur-3) var(--ease-out) backwards; animation-delay: calc(180ms + var(--i, 0) * 28ms); }
+.stage.is-enter .rib-label { animation: fade var(--dur-3) var(--ease-out) 600ms backwards; }
+.stage.is-enter .heatmap svg { animation: wipe-down calc(var(--dur-3) * 2.4) cubic-bezier(0.45, 0.05, 0.25, 1) 160ms backwards; }
+.stage:not(.is-enter) .heatmap svg { animation: fade var(--dur-2) var(--ease-out); } /* color mode swapped */
+.stage.is-enter .chart svg { animation: wipe calc(var(--dur-3) * 2.2) cubic-bezier(0.45, 0.05, 0.25, 1) 160ms backwards; }
+.stage.is-enter .map svg { animation: fade calc(var(--dur-3) * 1.5) var(--ease-out) 120ms backwards; }
+
+/* Lists arrive in a quick stagger whenever their contents change. */
+.result-list > li, .now-list > li, .tool-grid > *, .wall > .fp-card, .ranger-notes li {
+  animation: rise var(--dur-2) var(--ease-out) backwards; animation-delay: calc(min(var(--i, 0), 12) * 24ms);
+}
+/* Inside the home filter's popovers, contents just fade in: no travel, no bounce. */
+.pop-month .season, .region-card, .scope-row { animation: fade var(--dur-2) var(--ease-out) backwards; }
+:is(.result-list, .now-list, .tool-grid, .ranger-notes ul, .season-grid, .region-grid, [role="radiogroup"]) > :nth-child(2) { --i: 1; }
+:is(.result-list, .now-list, .tool-grid, .ranger-notes ul, .season-grid, .region-grid, [role="radiogroup"]) > :nth-child(3) { --i: 2; }
+:is(.result-list, .now-list, .tool-grid, .ranger-notes ul, .season-grid, .region-grid, [role="radiogroup"]) > :nth-child(4) { --i: 3; }
+:is(.result-list, .now-list, .tool-grid, .ranger-notes ul, .season-grid, .region-grid, [role="radiogroup"]) > :nth-child(5) { --i: 4; }
+:is(.result-list, .now-list, .tool-grid, .ranger-notes ul, .season-grid, .region-grid, [role="radiogroup"]) > :nth-child(6) { --i: 5; }
+:is(.result-list, .now-list, .tool-grid, .ranger-notes ul, .season-grid, .region-grid, [role="radiogroup"]) > :nth-child(7) { --i: 6; }
+:is(.result-list, .now-list, .tool-grid, .ranger-notes ul, .season-grid, .region-grid, [role="radiogroup"]) > :nth-child(8) { --i: 7; }
+:is(.result-list, .now-list, .tool-grid, .ranger-notes ul, .season-grid, .region-grid, [role="radiogroup"]) > :nth-child(n+9) { --i: 8; }
+.wall > .fp-card:nth-child(n+2) { --i: 2; } .wall > .fp-card:nth-child(n+6) { --i: 5; } .wall > .fp-card:nth-child(n+12) { --i: 8; }
+.wall > .fp-card:nth-child(n+20) { --i: 11; } .wall > .fp-card:nth-child(n+30) { --i: 12; }
+
+/* Tactile press on everything you can tap. */
+:is(.btn, .chip, .chip-link, .segmented button, .month-strip button, .tile-go, .finder-go, .theme-btn, .pop-chip, .month-tile, .switch, .tool-card, .fp-card, .result-card, .finder-seg, .pop-option, .scope-row, .hero-cue) {
+  transition-property: color, background-color, border-color, box-shadow, transform, filter;
+  transition-duration: var(--dur-1); transition-timing-function: var(--ease-out);
+}
+:is(.btn, .chip, .chip-link, .segmented button, .month-strip button, .tile-go, .theme-btn, .switch):active { transform: scale(0.96); }
+:is(.finder-go, .pop-chip, .month-tile, .pop-option, .scope-row):active { transform: scale(0.985); } /* home filter: barely-there press */
+:is(.tool-card, .fp-card, .result-card, .tile):active { transform: scale(0.985); }
+.region-card:active .region-art { transform: scale(0.985); }
+.region-art { transition: border-color var(--dur-1), transform var(--dur-1) var(--ease-out); }
+
+/* Selection settles with a small pop. */
+.seg-indicator.is-pop { animation: pop var(--dur-2) var(--ease-out); }
+.scope-row .radio { transition: border-width var(--dur-2) var(--ease-out), border-color var(--dur-2); }
+
+/* Icons: the theme icon turns into place on every swap. */
+.theme-btn svg { animation: turn-in var(--dur-3) var(--ease-spring); }
+
+/* "Now" marks breathe softly. */
+.month-tile.now:not(.on) i { animation: breathe 2.4s ease-in-out infinite; }
+
+/* Tiles: the scene drifts a touch on hover, like looking into it. */
+.tile-scene svg { transition: transform calc(var(--dur-3) * 2) var(--ease-out); }
+.tile:hover .tile-scene svg { transform: scale(1.04); }
+.tile { transition: transform var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out); }
+.tile:hover { box-shadow: var(--shadow); }
+
+/* Tooltip fades in. */
+#tooltip.is-in { animation: fade var(--dur-1) var(--ease-out); }
+
+/* Reduced motion: no animation or transition anywhere. */
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-1: 0ms; --dur-2: 0ms; --dur-3: 0ms; }
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
 
 /* ---------- Small screens ---------- */
 @media (max-width: 900px) {

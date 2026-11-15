@@ -7,7 +7,7 @@ import { OFF_SEASON, miniFingerprint } from '../insights';
 import { sequentialInterpolator } from '../scales';
 import { setState, type AppState } from '../state';
 import { esc, hideTooltip, showTooltip } from '../tooltip';
-import { fill, h, loading, segmented, select } from '../ui';
+import { fill, h, loading, segmented, select, toggleSwitch } from '../ui';
 
 const SHOW = 24;
 
@@ -55,9 +55,7 @@ export async function renderWhen(root: HTMLElement, s: AppState): Promise<void> 
           s.st, (v) => setState({ st: v })),
         idx.hasMetadata && segmented<'np' | 'all'>('Which units', [
           { value: 'np', label: 'National Parks' }, { value: 'all', label: 'All units' }], s.scope, (v) => setState({ scope: v })),
-        h('label', { class: 'check' },
-          h('input', { type: 'checkbox', checked: s.open, onchange: (e: Event) => setState({ open: (e.target as HTMLInputElement).checked }) }),
-          ` Hide off-season (under ${fmtPct(OFF_SEASON, 0)} of the year)`))),
+        toggleSwitch(`Hide off-season (under ${fmtPct(OFF_SEASON, 0)} of the year)`, s.open, (v) => setState({ open: v })))),
     !idx.hasMetadata && h('p', { class: 'warn' }, 'Park names, states and locations aren’t loaded yet (NPS API metadata missing), so filters and the map are empty.'),
     h('div', { class: 'when-layout' },
       h('div', { class: 'when-results' },

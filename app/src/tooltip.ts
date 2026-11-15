@@ -4,7 +4,7 @@ const el = () => document.getElementById('tooltip') as HTMLDivElement;
 export function showTooltip(html: string, x: number, y: number): void {
   const t = el();
   t.innerHTML = html;
-  t.hidden = false;
+  if (t.hidden) { t.hidden = false; t.classList.remove('is-in'); void t.offsetWidth; t.classList.add('is-in'); }
   const pad = 12;
   const { width, height } = t.getBoundingClientRect();
   let left = x + pad;
