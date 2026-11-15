@@ -57,6 +57,8 @@ export interface FinderOpts {
   uid?: string;
   /** Called after a search navigates (the header dock collapses on it). */
   onSubmit?: () => void;
+  /** Clicks on the compact layout (header pill): which part was clicked. */
+  onCompact?: (id: PanelId) => void;
 }
 
 export interface FinderHandle {
@@ -72,7 +74,7 @@ export interface FinderHandle {
 
 export type { PanelId };
 
-export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onSubmit }: FinderOpts): FinderHandle {
+export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onSubmit, onCompact }: FinderOpts): FinderHandle {
   const byCode = new Map(idx.parks.map((p) => [p.code, p]));
   const sel = { park: null as ParkSummary | null, month: now, region: '', scope: 'np' as 'np' | 'all' };
   const npCount = idx.parks.filter(isNationalPark).length;
@@ -116,7 +118,22 @@ export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onS
   };
   Object.values(pops).forEach((p) => (p.hidden = true));
 
-  const bar = h('div', { class: 'finder-bar' }, segs.park, segs.month, segs.region, segs.scope, go);
+  /* Compact layout of the same bar (header pill): values only. The bar element itself morphs
+     between the two layouts (dock.ts); this layer crossfades with the full one. */
+  const cVal = { park: h('span', { class: 'sbar-val' }), month: h('span', { class: 'sbar-val' }), region: h('span', { class: 'sbar-val' }) };
+  const cBtn = (id: PanelId, val: HTMLElement, icon = '') => {
+    const b = h('button', { type: 'button', class: `sbar-seg sbar-${id}`, onclick: () => onCompact?.(id) }, val);
+    if (icon) b.insertAdjacentHTML('afterbegin', icon.replace('class="ic"', 'class="sbar-ic"'));
+    return b;
+  };
+  const cGo = h('button', { type: 'button', class: 'sbar-go', 'aria-label': 'Search parks', onclick: () => onCompact?.('park') });
+  cGo.innerHTML = ICON.search.replace('ic-search', 'sbar-search');
+  const compact = h('div', { class: 'sbar-compact' },
+    cBtn('park', cVal.park, ICON.mountain), h('span', { class: 'sbar-sep', 'aria-hidden': 'true' }),
+    cBtn('month', cVal.month), h('span', { class: 'sbar-sep sbar-sep-region', 'aria-hidden': 'true' }),
+    cBtn('region', cVal.region), cGo);
+  const full = h('div', { class: 'sbar-full' }, segs.park, segs.month, segs.region, segs.scope, go);
+  const bar = h('div', { class: 'finder-bar' }, full, compact);
   const form = h('form', { class: 'finder', role: 'search', onsubmit: (e: Event) => { e.preventDefault(); submit(); } },
     bar, ...Object.values(pops));
 
@@ -236,6 +253,9 @@ export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onS
     monthVal.textContent = MONTHS_LONG[sel.month];
     regionVal.textContent = sel.region || 'Anywhere';
     scopeVal.textContent = sel.scope === 'np' ? 'National parks' : 'All park units';
+    cVal.park.textContent = sel.park ? label(sel.park) : 'Any park';
+    cVal.month.textContent = MONTHS_LONG[sel.month];
+    cVal.region.textContent = sel.region || 'Anywhere';
   }
 
   function setOpen(id: PanelId | null): void {

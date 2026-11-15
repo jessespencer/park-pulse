@@ -4,7 +4,6 @@ import { MONTHS_LONG, fmtPct, isNationalPark, loadIndex, type ParkSummary } from
 import { miniFingerprint, quietestParks } from '../insights';
 import { setState, type View } from '../state';
 import { fill, h } from '../ui';
-import { renderFinder } from './finder';
 
 const TOOLS: { view: View; title: string; blurb: string; icon: string }[] = [
   { view: 'when', title: 'When to go', blurb: 'Pick a month, get the quietest parks — ranked fairly, big or small.', icon: 'M4 6h16v14H4zM4 10h16M8 3v5M16 3v5M9 14h2v2H9z' },
@@ -25,7 +24,8 @@ export async function renderHome(root: HTMLElement): Promise<void> {
   const yMax = d3.quantile(pool.map((p) => d3.max(p.profile!)!).sort(d3.ascending), 0.95) ?? 0.25;
   const lastYear = d3.max(idx.parks, (p) => p.lastYear);
 
-  const finder = renderFinder(idx, { now, uid: 'hero-finder' }).el;
+  // The site's one search bar (dock.ts) sits here while the hero is on screen.
+  const finder = h('div', { class: 'sbar-slot' });
 
   const hero = h('section', { class: 'hero' },
     topo({ seed: 7, scale: 560, levels: 26, grid: 240 }),

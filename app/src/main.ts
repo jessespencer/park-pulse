@@ -9,7 +9,7 @@ import { loadIndex } from './data';
 import { mountDock, type Dock } from './dock';
 import { getState, setState, subscribe, type AppState, type View } from './state';
 import { hideTooltip } from './tooltip';
-import { errorBox, h } from './ui';
+import { durMs, errorBox, h, reduceMotion } from './ui';
 import { renderCompare } from './views/compare';
 import { renderDrift } from './views/drift';
 import { renderHome } from './views/home';
@@ -17,13 +17,13 @@ import { renderPark } from './views/park';
 import { renderWall } from './views/wall';
 import { renderWhen } from './views/when';
 
-const VIEWS: { id: View; label: string; nav: boolean; render: (root: HTMLElement, s: AppState) => Promise<void> }[] = [
+const VIEWS: { id: View; label: string; nav: boolean; blurb?: string; icon?: string; render: (root: HTMLElement, s: AppState) => Promise<void> }[] = [
   { id: 'home', label: 'Trailhead', nav: false, render: (root) => renderHome(root) },
-  { id: 'when', label: 'When to go', nav: true, render: renderWhen },
-  { id: 'park', label: 'Park heatmap', nav: true, render: renderPark },
-  { id: 'wall', label: 'Fingerprints', nav: true, render: renderWall },
-  { id: 'drift', label: 'Season drift', nav: true, render: renderDrift },
-  { id: 'compare', label: 'Compare', nav: true, render: renderCompare },
+  { id: 'when', label: 'When to go', nav: true, blurb: 'Quietest parks in any month', icon: 'M4 6h16v14H4zM4 10h16M8 3v5M16 3v5M9 14h2v2H9z', render: renderWhen },
+  { id: 'park', label: 'Park heatmap', nav: true, blurb: 'Every month since 1979', icon: 'M4 4h4v4H4zM10 4h4v4h-4zM16 4h4v4h-4zM4 10h4v4H4zM10 10h4v4h-4zM16 10h4v4h-4zM4 16h4v4H4zM10 16h4v4h-4z', render: renderPark },
+  { id: 'wall', label: 'Fingerprints', nav: true, blurb: 'All 64 national parks side by side', icon: 'M4 20V12M8 20V7M12 20V4M16 20V9M20 20v-6', render: renderWall },
+  { id: 'drift', label: 'Season drift', nav: true, blurb: 'How the busy season has shifted', icon: 'M3 17c3-6 6-9 9-9s6 3 9 9M3 12c3-4 6-6 9-6s6 2 9 6', render: renderDrift },
+  { id: 'compare', label: 'Compare', nav: true, blurb: 'Two parks, month by month', icon: 'M4 5h7v14H4zM13 5h7v14h-7z', render: renderCompare },
 ];
 
 const app = document.getElementById('app')!;
@@ -34,12 +34,44 @@ let pageKey = '';
 let dock: Dock | null = null;
 
 function renderNav(s: AppState): void {
-  nav.replaceChildren(...VIEWS.filter((v) => v.nav).map((v) => h('a', {
-    href: `?view=${v.id}`,
-    'aria-current': v.id === s.view ? 'page' : undefined,
-    onclick: (e: Event) => { e.preventDefault(); setState({ view: v.id }); },
-  }, v.label)));
+  nav.replaceChildren(...VIEWS.filter((v) => v.nav).map((v) => {
+    const icon = h('span', { class: 'menu-ic' });
+    icon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${v.icon}"/></svg>`;
+    return h('a', {
+      href: `?view=${v.id}`,
+      'aria-current': v.id === s.view ? 'page' : undefined,
+      onclick: (e: Event) => { e.preventDefault(); setMenu(false); setState({ view: v.id }); },
+    }, icon, h('span', { class: 'menu-text' }, h('span', { class: 'menu-title' }, v.label), h('span', { class: 'menu-blurb' }, v.blurb ?? '')));
+  }));
+  menuLabel.textContent = VIEWS.find((v) => v.id === s.view && v.nav)?.label ?? 'Explore';
 }
+
+/* ---------- Menu (the views live here, so the header stays one row with the search centered) ---------- */
+const menuBtn = document.getElementById('menu-btn') as HTMLButtonElement;
+const menuLabel = document.getElementById('menu-label')!;
+function setMenu(open: boolean): void {
+  if (open === !nav.hidden) return;
+  menuBtn.setAttribute('aria-expanded', String(open));
+  if (open) {
+    nav.hidden = false;
+    if (!reduceMotion()) nav.animate([{ opacity: 0, transform: 'translateY(-6px) scale(0.97)' }, { opacity: 1, transform: 'none' }], { duration: durMs('--dur-2'), easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
+    nav.querySelector<HTMLElement>('a[aria-current="page"], a')?.focus();
+  } else {
+    nav.hidden = true;
+  }
+}
+menuBtn.addEventListener('click', () => setMenu(nav.hidden));
+document.addEventListener('pointerdown', (e) => { if (!nav.hidden && !(e.target as Element).closest('.menu')) setMenu(false); });
+document.addEventListener('keydown', (e) => {
+  if (nav.hidden) return;
+  if (e.key === 'Escape') { setMenu(false); menuBtn.focus(); return; }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const links = [...nav.querySelectorAll<HTMLElement>('a')];
+    const i = links.indexOf(document.activeElement as HTMLElement);
+    links[(i + (e.key === 'ArrowDown' ? 1 : -1) + links.length) % links.length]?.focus();
+  }
+});
 
 async function render(s: AppState, opts: { scrollTop?: boolean } = {}): Promise<void> {
   const seq = ++renderSeq;

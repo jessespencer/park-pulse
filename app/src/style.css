@@ -150,24 +150,49 @@ body .site-header.scrolled {
 }
 body[data-view="home"] .site-header { border-bottom-color: transparent; }
 .header-inner {
-  /* Full bleed. Row 1: logo | search pill | tools, with equal side columns so the pill sits
-     exactly on the page's center line whatever the side content. Row 2: the nav, centered. */
+  /* Full bleed, one row: logo | search | tools. The side columns are equal, so the search
+     sits exactly on the page's center line whatever is on either side. */
   padding: 0 clamp(16px, 3vw, 40px);
   display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  grid-template-areas: "brand dock tools" "nav nav nav";
+  grid-template-areas: "brand dock tools";
   align-items: center; column-gap: 1.5rem;
 }
 .brand { grid-area: brand; justify-self: start; height: 68px; flex: none; display: flex; align-items: center; gap: 0.6rem; text-decoration: none; color: var(--accent); white-space: nowrap; }
 .brand:hover { color: var(--accent); }
 .brand .emblem { display: block; }
 .brand-name { font: 800 1.4rem/1 var(--font-sign); text-transform: uppercase; letter-spacing: 0.02em; }
-#nav { grid-area: nav; justify-self: center; display: flex; gap: 2rem; margin-top: -4px; }
-#nav a {
-  text-decoration: none; color: var(--muted); font-weight: 500; font-size: 0.9rem; white-space: nowrap;
-  padding: 0.35rem 0 0.75rem; box-shadow: inset 0 -2px 0 transparent;
+/* Views menu (top right) */
+.menu { position: relative; }
+.menu-btn {
+  display: inline-flex; align-items: center; gap: 0.55rem; height: 40px; padding: 0 0.95rem 0 0.8rem;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--ink);
+  font-size: 0.88rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+  box-shadow: var(--shadow-sm); transition: box-shadow var(--dur-2) var(--ease-out), border-color var(--dur-1);
 }
-#nav a:hover { color: var(--ink); }
-#nav a[aria-current="page"] { color: var(--ink); box-shadow: inset 0 -2px 0 var(--accent); }
+.menu-btn:hover, .menu-btn[aria-expanded="true"] { box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 8px 20px -10px rgb(0 0 0 / 0.35); }
+.menu-btn svg { width: 18px; height: 18px; }
+.menu-btn:active { transform: scale(0.97); }
+.menu-pop {
+  position: absolute; top: calc(100% + 10px); right: 0; z-index: 30; width: 300px; padding: 0.45rem;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+  box-shadow: 0 24px 50px -18px rgb(0 0 0 / 0.35), 0 2px 8px rgb(0 0 0 / 0.06); transform-origin: top right;
+}
+.menu-pop[hidden] { display: none; }
+.menu-pop a {
+  display: flex; align-items: center; gap: 0.85rem; padding: 0.6rem 0.7rem; border-radius: 14px;
+  text-decoration: none; color: var(--ink); outline-offset: -2px;
+}
+.menu-pop a:hover, .menu-pop a:focus-visible { background: var(--surface-2); }
+.menu-ic {
+  flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px;
+  background: color-mix(in srgb, var(--sage) 14%, var(--surface)); color: var(--pine);
+}
+.menu-ic svg { width: 20px; height: 20px; }
+.menu-text { display: flex; flex-direction: column; min-width: 0; }
+.menu-title { font-weight: 600; font-size: 0.95rem; }
+.menu-blurb { font-size: 0.8rem; color: var(--muted); }
+.menu-pop a[aria-current="page"] .menu-ic { background: var(--btn-bg); color: var(--btn-ink); }
+.menu-pop a[aria-current="page"] .menu-title { color: var(--accent); }
 .header-tools { grid-area: tools; justify-self: end; display: flex; gap: 0.6rem; align-items: center; }
 .theme-btn {
   width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
@@ -188,61 +213,66 @@ main { min-height: 60vh; position: relative; }
 .stage-full { max-width: none; padding: 0 0 3rem; }
 .stage-full > .section, .stage-full > .tiles { max-width: 1180px; margin: 0 auto; padding: 3.25rem 24px 0; }
 
-/* ---------- Header search dock ----------
- * Compact pill in the header that expands into the full finder (dock.ts). On home it
- * stays hidden while the hero bar is on screen, and the two morph into each other.
+/* ---------- The search bar (dock.ts) ----------
+ * One finder element that lives in the hero, the header center (compact), or the panel
+ * under the header (full). It moves between them as one element: its box animates and
+ * its full and compact layouts crossfade inside it.
  */
 .dock { grid-area: dock; min-width: 0; display: flex; justify-content: center; }
-.dock-pill {
-  display: flex; align-items: center; height: 48px; padding: 0 7px 0 4px; max-width: 100%;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 6px 16px -10px rgb(0 0 0 / 0.3);
-  transition: box-shadow var(--dur-2) var(--ease-out), opacity var(--dur-2) var(--ease-out);
-}
-.dock-pill:hover { box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 10px 24px -10px rgb(0 0 0 / 0.4); }
-.dock-seg {
-  display: flex; align-items: center; gap: 0.5rem; height: 100%; min-width: 0; padding: 0 1rem;
+.sbar-slot { max-width: 820px; margin: 2.25rem auto 0; min-height: 70px; }   /* hero: holds the space while the bar is away */
+.sbar-panel-slot { max-width: 820px; margin: 0 auto; min-height: 70px; }
+.sbar-layer { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+.sbar-layer .finder-bar { pointer-events: auto; }
+
+/* Compact layout (header pill) */
+.sbar-compact { display: none; align-items: center; height: 100%; }
+.finder.is-compact .sbar-full { display: none; }
+.finder.is-compact .sbar-compact { display: flex; }
+.finder.is-compact .finder-bar { height: 48px; padding: 0 7px 0 4px; box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 6px 16px -10px rgb(0 0 0 / 0.3); }
+.finder.is-compact .finder-bar:hover { box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 10px 24px -10px rgb(0 0 0 / 0.4); }
+.sbar-seg {
+  display: flex; align-items: center; gap: 0.5rem; height: 40px; min-width: 0; padding: 0 1rem;
   border: 0; background: none; border-radius: 999px; cursor: pointer;
   font-size: 0.88rem; font-weight: 600; color: var(--ink); white-space: nowrap;
 }
-.dock-seg:hover { background: var(--surface-2); }
-.dock-val { overflow: hidden; text-overflow: ellipsis; max-width: 13rem; }
-.dock-ic { flex: none; width: 18px; height: 18px; color: var(--accent); }
-.dock-sep { flex: none; width: 1px; height: 22px; background: var(--border); }
-.dock-seg:hover + .dock-sep, .dock-sep:has(+ .dock-seg:hover) { opacity: 0; }
-.dock-go {
+.sbar-seg:hover { background: var(--surface-2); }
+.sbar-val { overflow: hidden; text-overflow: ellipsis; max-width: 13rem; }
+.sbar-ic { flex: none; width: 18px; height: 18px; color: var(--accent); }
+.sbar-sep { flex: none; width: 1px; height: 22px; background: var(--border); }
+.sbar-seg:hover + .sbar-sep, .sbar-sep:has(+ .sbar-seg:hover) { opacity: 0; }
+.sbar-go {
   flex: none; display: grid; place-items: center; width: 34px; height: 34px; margin-left: 0.35rem;
   border: 0; border-radius: 50%; cursor: pointer; background: var(--btn-bg); color: var(--btn-ink);
   transition: filter var(--dur-1), transform var(--dur-1) var(--ease-out);
 }
-.dock-go:hover { filter: brightness(1.12); }
-.dock-go:active, .dock-seg:active { transform: scale(0.96); }
-.dock-search { width: 16px; height: 16px; }
+.sbar-go:hover { filter: brightness(1.12); }
+.sbar-go:active, .sbar-seg:active { transform: scale(0.96); }
+.sbar-search { width: 16px; height: 16px; }
 
-/* Home: hidden while the hero bar is on screen; the hero bar steps aside once it has docked. */
-body.dock-hidden .dock-pill { opacity: 0; pointer-events: none; }
-.hero .finder { transition: opacity var(--dur-2) var(--ease-out); }
-body[data-view="home"]:not(.dock-hidden) .hero .finder { opacity: 0; pointer-events: none; }
+/* Mid-move: both layouts stacked and centered in the bar, clipped by its rounded edge,
+   while dock.ts animates the bar's box and crossfades them. */
+.finder-bar.is-morphing { overflow: hidden; }
+.finder-bar.is-morphing .sbar-full, .finder-bar.is-morphing .sbar-compact {
+  display: flex; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); flex: none;
+}
+.finder-bar.is-morphing .sbar-compact { height: 48px; }
 
-/* Expanded: the header and panel read as one surface over a dimmed page. */
+/* Expanded: header and panel read as one surface over a dimmed page. */
 .site-header.dock-expanded { background: var(--surface); box-shadow: none; border-bottom-color: transparent; }
 .dock-panel {
   position: absolute; left: 0; right: 0; top: 100%;
-  padding: 0.6rem clamp(16px, 3vw, 40px) 1.5rem;
+  padding: 0.4rem clamp(16px, 3vw, 40px) 1.5rem;
   background: var(--surface); border-bottom: 1px solid var(--border);
   box-shadow: 0 22px 30px -24px rgb(0 0 0 / 0.45);
 }
 .dock-panel[hidden] { display: none; }
-.dock-panel-inner { max-width: 820px; margin: 0 auto; }
-.dock-panel .finder { margin: 0 auto; }
 .dock-panel .finder-bar { box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 10px 26px -14px rgb(0 0 0 / 0.35); }
 .dock-scrim { position: fixed; inset: 0; z-index: 15; background: rgb(8 14 11 / 0.32); }
 .dock-scrim[hidden] { display: none; }
 
-/* Narrower headers: drop the region, then the month, before anything wraps. */
 /* The pill owns the center: drop the region, then the month, only when the sides would collide. */
-@media (max-width: 980px) { .dock-region, .dock-sep-region { display: none; } }
-@media (min-width: 761px) and (max-width: 860px) { .dock-month, .dock-sep { display: none; } .dock-val { max-width: 10rem; } }
+@media (max-width: 980px) { .sbar-region, .sbar-sep-region { display: none; } }
+@media (min-width: 761px) and (max-width: 860px) { .sbar-month, .sbar-sep { display: none; } .sbar-val { max-width: 10rem; } }
 
 /* ---------- Buttons / controls ---------- */
 .btn {
@@ -349,7 +379,8 @@ body[data-view="home"]:not(.dock-hidden) .hero .finder { opacity: 0; pointer-eve
 .hero .lede { max-width: 32rem; margin: 1rem auto 0; font-size: 1.06rem; color: var(--muted); }
 
 /* ---------- Finder: Airbnb-style pill + custom pickers ---------- */
-.finder { position: relative; max-width: 820px; margin: 2.25rem auto 0; text-align: left; }
+.finder { position: relative; max-width: 820px; margin: 0 auto; text-align: left; }
+.sbar-full { display: flex; align-items: center; flex: 1; min-width: 0; }
 .finder-bar {
   display: flex; align-items: center; padding: 6px; border-radius: 999px;
   background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow);
@@ -833,33 +864,32 @@ footer a:hover { color: var(--sign-ink); }
 }
 
 /* ---------- Small screens ---------- */
-@media (max-width: 900px) {
-  #nav { gap: 1.4rem; }
-}
 @media (max-width: 760px) {
   body { font-size: 15px; }
   .site-header { position: relative; } /* not sticky on phones, but still anchors the search panel */
-  .header-inner { padding: 0.6rem 16px 0.3rem; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "brand tools" "dock dock" "nav nav"; row-gap: 0.5rem; }
+  .header-inner { padding: 0.6rem 16px 0.7rem; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "brand tools" "dock dock"; row-gap: 0.55rem; }
+  #menu-label { display: none; }
+  .menu-btn { width: 40px; padding: 0; justify-content: center; }
   .brand { height: auto; }
   .park-picker.field .picker-box { width: 100%; }
   .park-picker.field { display: flex; width: 100%; }
   .brand-name { font-size: 1.2rem; }
   .trail-notes { grid-template-columns: 1fr 1fr; }
-  .dock-pill { width: 100%; }
-  .dock-pill .dock-park { flex: 1; }
-  .dock-month, .dock-sep { display: flex; }
-  .dock-sep-region { display: none; }
+  .dock > .finder { width: 100%; }
+  .finder.is-compact .sbar-compact { width: 100%; }
+  .sbar-compact .sbar-park { flex: 1; }
+  .sbar-month, .sbar-sep { display: flex; }
+  .sbar-sep-region, .sbar-region { display: none; }
   .dock-panel { padding: 0.4rem 16px 1rem; }
-  body.dock-hidden .dock { display: none; } /* header doesn't stick on phones: home keeps just the hero bar */
-  #nav { justify-self: stretch; width: calc(100% + 32px); margin: 0 -16px; padding: 0 16px; overflow-x: auto; scrollbar-width: none; gap: 1.3rem; }
-  #nav a { padding: 0.35rem 0 0.6rem; }
-  #nav::-webkit-scrollbar { display: none; }
+  .dock:empty { display: none; } /* home on phones keeps the bar in the hero */
   .stage { padding: 1.4rem 16px 3rem; }
   .stage-full { padding: 0 0 3rem; }
   .stage-full > .section, .stage-full > .tiles { padding-left: 16px; padding-right: 16px; }
   .month-header, .compare .month-header, .readout { top: 0; }
   .hero { padding: 2.75rem 16px 4.75rem; }
-  .finder-bar { flex-wrap: wrap; border-radius: 24px; padding: 6px; }
+  .finder-bar { border-radius: 24px; padding: 6px; }
+  .sbar-full { flex-wrap: wrap; }
+  .finder.is-compact .finder-bar { border-radius: 999px; }
   .finder-seg, .seg-park { flex: 1 1 45%; min-height: 52px; padding: 0.45rem 0.95rem; border-radius: 18px; }
   .seg-park { flex-basis: 100%; padding-right: 2.6rem; }
   .finder-seg + .finder-seg::before { display: none; }
