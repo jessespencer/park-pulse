@@ -25,21 +25,16 @@ export const reduceMotion = (): boolean => matchMedia('(prefers-reduced-motion: 
 
 /** Run once the node is in the document (views build off-DOM, then mount). */
 const whenMounted = (node: Element, fn: () => void): void => {
-  // Frames drive the motion; a timer backs them up, because hidden tabs get no frames
-  // and the control must still land in its true state. Whichever comes first runs once.
+  // Views fill their stage synchronously, so a microtask usually finds the node mounted
+  // (hidden, but laid out) before the page swaps in. Frames and timers back that up;
+  // hidden tabs get no frames. Whichever comes first runs once.
   let done = false;
   const run = () => { if (!done && node.isConnected) { done = true; fn(); } };
+  queueMicrotask(run);
   const tryRun = (left: number) => { run(); if (!done && left > 0) requestAnimationFrame(() => tryRun(left - 1)); };
   requestAnimationFrame(() => tryRun(30));
   [300, 1000, 3000].forEach((ms) => setTimeout(run, ms));
 };
-
-/** Restart a one-shot CSS animation class. */
-export function replay(el: Element, cls: string): void {
-  el.classList.remove(cls);
-  void (el as HTMLElement).offsetWidth;
-  el.classList.add(cls);
-}
 
 /** Tween a number in an element's text with an ease-out (e.g. a visit total). */
 export function countUp(el: HTMLElement, from: number, to: number, format: (n: number) => string, dur = 640): void {
@@ -54,33 +49,94 @@ export function countUp(el: HTMLElement, from: number, to: number, format: (n: n
   requestAnimationFrame(tick);
 }
 
-const segMemory = new Map<string, { left: number; width: number }>();
+/** Read a duration token (e.g. --dur-3) in ms, so JS motion obeys the same tokens and reduced motion. */
+const durMs = (token: string): number => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(token)) || 0;
 
-/** Segmented control with a sliding selection pill that glides from the previous choice. */
+type Rect = { left: number; width: number };
+/** Per control: where the pill is headed, where it started, and when (performance.now()). */
+const segMemory = new Map<string, { from: Rect; to: Rect; start: number }>();
+
+/**
+ * Glide the pill from→to, starting `elapsed` ms into the motion (continues a slide begun
+ * elsewhere). The pill carries a dark copy of the labels that counter-moves inside it, so
+ * every letter is exactly the right color at every point of the slide: no crossfade blur.
+ */
+function glide(indicator: HTMLElement, from: Rect, to: Rect, elapsed: number): void {
+  const ink = indicator.firstElementChild as HTMLElement;
+  indicator.style.left = `${to.left}px`;
+  indicator.style.width = `${to.width}px`;
+  ink.style.left = `${-to.left}px`;
+  const dur = durMs('--dur-3');
+  if (!dur || elapsed >= dur || (from.left === to.left && from.width === to.width)) return;
+  const timing = { duration: dur, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' };
+  const pill = indicator.animate([{ left: `${from.left}px`, width: `${from.width}px` }, { left: `${to.left}px`, width: `${to.width}px` }], timing);
+  const text = ink.animate([{ left: `${-from.left}px` }, { left: `${-to.left}px` }], timing);
+  pill.currentTime = elapsed;
+  text.currentTime = elapsed;
+}
+
+/**
+ * A button's left and width in its group's padding box, in exact layout pixels. Built from
+ * computed widths, not getBoundingClientRect (which includes page zoom and transforms) or
+ * offsetLeft/Width (which round to whole pixels).
+ */
+function boxIn(b: HTMLElement): Rect {
+  const g = b.parentElement!, cs = getComputedStyle(g);
+  const gap = parseFloat(cs.columnGap) || 0;
+  let left = parseFloat(cs.paddingLeft) || 0;
+  for (const x of g.querySelectorAll<HTMLElement>(':scope > button')) {
+    if (x === b) break;
+    left += parseFloat(getComputedStyle(x).width) + gap;
+  }
+  return { left, width: parseFloat(getComputedStyle(b).width) };
+}
+
+/**
+ * Segmented control with a sliding selection pill. The pill starts moving on the click itself;
+ * views then re-render, and the rebuilt control picks the same slide up at the same moment,
+ * so the motion runs continuously across the swap with one highlight at all times.
+ */
 export function segmented<T extends string>(
   label: string, options: { value: T; label: string }[], current: T, onChange: (v: T) => void,
 ): HTMLElement {
-  const indicator = h('span', { class: 'seg-indicator', 'aria-hidden': 'true' });
-  const group = h('div', { class: 'segmented', role: 'radiogroup', 'aria-label': label }, indicator,
-    ...options.map((o) => h('button', {
-      type: 'button', role: 'radio', 'aria-checked': String(o.value === current),
-      class: o.value === current ? 'active' : undefined,
-      onclick: () => onChange(o.value),
-    }, o.label)));
+  const ink = h('span', { class: 'seg-ink' }, ...options.map((o) => h('span', { class: 'seg-ink-label' }, o.label)));
+  const indicator = h('span', { class: 'seg-indicator', 'aria-hidden': 'true' }, ink);
+  const rectOf = boxIn;
+  const buttons = options.map((o) => h('button', {
+    type: 'button', role: 'radio', 'aria-checked': String(o.value === current),
+    class: o.value === current ? 'active' : undefined,
+  }, o.label));
+  const group = h('div', { class: 'segmented', role: 'radiogroup', 'aria-label': label }, indicator, ...buttons);
+  buttons.forEach((b, i) => b.addEventListener('click', () => {
+    const o = options[i];
+    if (o.value === current) return;
+    const was = group.querySelector<HTMLElement>('button.active');
+    const from = was ? rectOf(was) : rectOf(b);
+    buttons.forEach((x) => { x.classList.toggle('active', x === b); x.setAttribute('aria-checked', String(x === b)); });
+    const move = { from, to: rectOf(b), start: performance.now() };
+    segMemory.set(label, move);
+    glide(indicator, move.from, move.to, 0);
+    onChange(o.value);
+  }));
   whenMounted(group, () => {
     const b = group.querySelector<HTMLElement>('button.active');
     if (!b) { indicator.hidden = true; return; }
-    const to = { left: b.offsetLeft, width: b.offsetWidth };
-    const from = segMemory.get(label);
-    segMemory.set(label, to);
-    const put = (r: { left: number; width: number }) => { indicator.style.left = `${r.left}px`; indicator.style.width = `${r.width}px`; };
-    if (!from || reduceMotion() || (from.left === to.left && from.width === to.width)) { put(to); group.classList.add('is-ready'); return; }
-    put(from); // snap to where it was, then glide
+    const to = rectOf(b);
+    const mem = segMemory.get(label);
     group.classList.add('is-ready');
-    void indicator.offsetWidth;
-    indicator.classList.add('is-moving');
-    put(to);
-    indicator.addEventListener('transitionend', () => { indicator.classList.remove('is-moving'); replay(indicator, 'is-pop'); }, { once: true });
+    // Continue a slide that is still running (same target); otherwise just sit on the choice.
+    if (mem && mem.to.left === to.left && mem.to.width === to.width) glide(indicator, mem.from, to, performance.now() - mem.start);
+    else glide(indicator, to, to, 0);
+    segMemory.set(label, { from: to, to, start: mem?.start ?? 0 });
+    // Fonts arriving or a resize change the buttons' widths: keep the pill exact.
+    const resync = () => {
+      if (!group.isConnected) return;
+      const now = group.querySelector<HTMLElement>('button.active');
+      if (now && !indicator.getAnimations().length) glide(indicator, rectOf(now), rectOf(now), 0);
+    };
+    const ro = new ResizeObserver(resync);
+    buttons.forEach((x) => ro.observe(x));
+    indicator.getAnimations().forEach((an) => an.finished.then(resync, () => {}));
   });
   return group;
 }
