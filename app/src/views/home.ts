@@ -1,10 +1,10 @@
 import * as d3 from 'd3';
-import { heroScene, stripes } from '../art';
+import { tileScene, topo } from '../art';
 import { MONTHS_LONG, fmtPct, isNationalPark, loadIndex, type ParkSummary } from '../data';
-import { OFF_SEASON, miniFingerprint } from '../insights';
-import { bindSearch } from '../search';
+import { miniFingerprint, quietestParks } from '../insights';
 import { setState, type View } from '../state';
 import { fill, h } from '../ui';
+import { renderFinder } from './finder';
 
 const TOOLS: { view: View; title: string; blurb: string; icon: string }[] = [
   { view: 'when', title: 'When to go', blurb: 'Pick a month, get the quietest parks — ranked fairly, big or small.', icon: 'M4 6h16v14H4zM4 10h16M8 3v5M16 3v5M9 14h2v2H9z' },
@@ -14,39 +14,41 @@ const TOOLS: { view: View; title: string; blurb: string; icon: string }[] = [
   { view: 'compare', title: 'Compare', blurb: 'Two parks side by side, hover linked month to month.', icon: 'M4 5h7v14H4zM13 5h7v14h-7z' },
 ];
 
+
 export async function renderHome(root: HTMLElement): Promise<void> {
   const idx = await loadIndex();
   const now = new Date().getMonth();
   const nps = idx.parks.filter((p) => isNationalPark(p) && p.profile);
   const pool = nps.length ? nps : idx.parks.filter((p) => p.profile);
-  const open = pool.filter((p) => p.profile![now] >= OFF_SEASON);
-  const quiet = [...open].sort((a, b) => a.profile![now] - b.profile![now]).slice(0, 5);
+  const quiet = quietestParks(idx.parks, now, 5);
   const busy = [...pool].sort((a, b) => b.profile![now] - a.profile![now]).slice(0, 5);
   const yMax = d3.quantile(pool.map((p) => d3.max(p.profile!)!).sort(d3.ascending), 0.95) ?? 0.25;
   const lastYear = d3.max(idx.parks, (p) => p.lastYear);
 
-  const search = h('input', {
-    type: 'search', list: 'park-list', placeholder: 'Search a park — try “Zion” or “Acadia”',
-    'aria-label': 'Search parks', autocomplete: 'off',
-  });
-  bindSearch(search, idx);
+  const finder = renderFinder(idx, { now });
 
-  const hero = h('section', { class: 'hero' });
-  hero.innerHTML = heroScene();
-  hero.append(h('div', { class: 'hero-inner' },
-    h('p', { class: 'eyebrow' }, `Est. 1979 · ${idx.parks.length} park units · ${nps.length || '—'} national parks`),
-    h('h1', { class: 'display' }, 'Beat the crowds.'),
-    h('p', { class: 'lede' },
-      `${lastYear! - 1979 + 1} years of monthly visits to America’s parks. See each park’s busy season, how it’s shifted, and which parks are quiet when you want to go.`),
-    h('div', { class: 'hero-search' }, search),
-    h('div', { class: 'hero-cta' },
-      h('button', { type: 'button', class: 'btn btn-ember', onclick: () => setState({ view: 'when', month: now + 1 }) },
-        `Quiet parks in ${MONTHS_LONG[now]} →`),
-      h('button', { type: 'button', class: 'btn btn-ghost-light', onclick: () => setState({ view: 'park', park: 'ROMO' }) },
-        'Explore Rocky Mountain'))));
+  const hero = h('section', { class: 'hero' },
+    topo({ seed: 7, scale: 560, levels: 26, grid: 240 }),
+    h('div', { class: 'hero-inner' },
+      h('h1', { class: 'display' }, 'Beat the crowds at ', h('em', {}, 'America’s'), ' national parks'),
+      h('p', { class: 'lede' },
+        `${lastYear! - 1979 + 1} years of monthly visits. See each park’s busy season, how it’s shifted, and which parks are quiet when you want to go.`),
+      finder),
+    h('button', {
+      type: 'button', class: 'hero-cue', 'aria-label': 'Scroll to explore',
+      onclick: () => hero.nextElementSibling?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+    }, 'Explore'));
+  hero.lastElementChild!.insertAdjacentHTML('beforeend', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>');
 
-  const stripeEl = h('div', {});
-  stripeEl.innerHTML = stripes();
+  const tile = (cls: string, scene: 'quiet' | 'summer', eyebrow: string, title: string, cta: string, onclick: () => void) => {
+    const art = h('span', { class: 'tile-scene' });
+    art.innerHTML = tileScene(scene);
+    return h('button', { type: 'button', class: `tile ${cls}`, onclick },
+      art,
+      h('span', { class: 'eyebrow' }, eyebrow),
+      h('span', { class: 'tile-title' }, title),
+      h('span', { class: 'tile-go' }, cta));
+  };
 
   const monthCol = (title: string, sub: string, parks: ParkSummary[]) =>
     h('div', { class: 'now-col panel' },
@@ -55,26 +57,28 @@ export async function renderHome(root: HTMLElement): Promise<void> {
       h('ol', { class: 'now-list' }, ...parks.map((p, i) => h('li', {},
         h('span', { class: 'rank-badge' }, String(i + 1)),
         h('a', { href: `?view=park&park=${p.code}`, onclick: (e: Event) => { e.preventDefault(); setState({ view: 'park', park: p.code }); } },
-          h('span', { class: 'now-name' }, p.shortName),
+          h('span', { class: 'park-name' }, p.shortName),
           h('span', { class: 'muted small' }, ` ${p.states.join(', ')}`)),
         h('span', { class: 'now-fp' }, miniFingerprint(p.profile!, yMax, now)),
         h('span', { class: 'num small' }, fmtPct(p.profile![now], 1))))));
 
   fill(root,
     hero,
-    stripeEl.firstElementChild,
+    h('div', { class: 'tiles' },
+      tile('tile-1', 'quiet', 'When to go', `Quiet parks this ${MONTHS_LONG[now]}`, 'See the list →', () => setState({ view: 'when', month: now + 1 })),
+      tile('tile-2', 'summer', 'Season drift', 'Has summer gotten longer?', 'See it decade by decade →', () => setState({ view: 'drift' }))),
     h('section', { class: 'section' },
       h('header', { class: 'section-head' },
-        h('p', { class: 'eyebrow dark' }, 'Field report'),
-        h('h2', { class: 'display-2' }, `This ${MONTHS_LONG[now]} in the parks`),
+        h('p', { class: 'eyebrow' }, 'Field report'),
+        h('h2', { class: 'section-title' }, `This ${MONTHS_LONG[now]} in the parks`),
         h('p', { class: 'muted' }, `Share of each park’s typical year that falls in ${MONTHS_LONG[now]}. Bars show the full year; the highlighted bar is this month.`)),
       h('div', { class: 'now-grid' },
         monthCol('Quietest right now', 'Open parks with the smallest share of their year this month.', quiet),
         monthCol('Peak season right now', 'Parks where this month carries the most weight.', busy))),
     h('section', { class: 'section' },
       h('header', { class: 'section-head' },
-        h('p', { class: 'eyebrow dark' }, 'Pick your trail'),
-        h('h2', { class: 'display-2' }, 'Five ways in')),
+        h('p', { class: 'eyebrow' }, 'Pick your trail'),
+        h('h2', { class: 'section-title' }, 'Five ways in')),
       h('div', { class: 'tool-grid' }, ...TOOLS.map((t) => {
         const icon = h('span', { class: 'tool-icon' });
         icon.innerHTML = `<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="${t.icon}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
@@ -82,13 +86,5 @@ export async function renderHome(root: HTMLElement): Promise<void> {
           icon, h('span', { class: 'tool-title' }, t.title), h('span', { class: 'tool-blurb' }, t.blurb),
           h('span', { class: 'tool-go' }, 'Go →'));
       }))),
-    h('section', { class: 'section how' },
-      h('header', { class: 'section-head' },
-        h('p', { class: 'eyebrow dark' }, 'Reading the signs'),
-        h('h2', { class: 'display-2' }, 'Three ways to color a year')),
-      h('div', { class: 'how-grid' },
-        h('div', { class: 'how-item' }, h('h3', {}, 'Visits'), h('p', {}, 'Raw monthly count. Best for seeing growth and the 2020 closures.')),
-        h('div', { class: 'how-item' }, h('h3', {}, 'Share of year'), h('p', {}, 'How much of a year’s traffic one month carries. Fair across park sizes — this is what “When to go” ranks by.')),
-        h('div', { class: 'how-item' }, h('h3', {}, 'Index vs normal'), h('p', {}, '100 = that park’s typical level for the month (1979–2019 median). Teal is quieter than usual, rust is busier.')))),
   );
 }

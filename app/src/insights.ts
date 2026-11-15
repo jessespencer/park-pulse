@@ -1,5 +1,5 @@
 import * as d3 from 'd3';
-import { MONTHS, type ParkSummary } from './data';
+import { MONTHS, isNationalPark, type ParkSummary } from './data';
 
 /** Below this share of a park's year, a month is effectively off-season (often closed). */
 export const OFF_SEASON = 0.02;
@@ -8,6 +8,19 @@ export const OFF_SEASON = 0.02;
 export function quietMonths(p: ParkSummary): number[] {
   if (!p.profile) return [];
   return d3.range(12).filter((m) => p.profile![m] >= OFF_SEASON).sort((a, b) => p.profile![a] - p.profile![b]);
+}
+
+/**
+ * Quietest open national parks in a month (falls back to all units when
+ * designations are missing). Same ranking the home page and pickers show.
+ */
+export function quietestParks(parks: ParkSummary[], month: number, n = 5): ParkSummary[] {
+  const nps = parks.filter((p) => isNationalPark(p) && p.profile);
+  const pool = nps.length ? nps : parks.filter((p) => p.profile);
+  return pool
+    .filter((p) => p.profile![month] >= OFF_SEASON)
+    .sort((a, b) => a.profile![month] - b.profile![month])
+    .slice(0, n);
 }
 
 /** Months above an even 1/12 share — the park's "busy season". */

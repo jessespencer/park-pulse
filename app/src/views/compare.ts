@@ -2,7 +2,8 @@ import { MONTHS_LONG, fmtInt, fmtPct, loadIndex, loadPark, type ParkDetail } fro
 import { gridMax, renderHeatmap, type HeatmapHandle } from '../heatmap';
 import { setState, type AppState } from '../state';
 import { esc } from '../tooltip';
-import { errorBox, fill, h, loading, modeToggle, parkOptions, select } from '../ui';
+import { parkPicker } from '../parkPicker';
+import { errorBox, fill, h, loading, modeToggle } from '../ui';
 
 export async function renderCompare(root: HTMLElement, s: AppState): Promise<void> {
   fill(root, loading());
@@ -14,7 +15,6 @@ export async function renderCompare(root: HTMLElement, s: AppState): Promise<voi
   const readout = h('div', { class: 'readout', 'aria-live': 'polite' }, h('span', { class: 'muted' }, 'Hover a cell to compare the same month in both parks.'));
   const hostA = h('div', {}), hostB = h('div', {});
   const legA = h('div', { class: 'legend' }), legB = h('div', { class: 'legend' });
-  const opts = parkOptions(idx);
 
   fill(root, 
     h('section', { class: 'view-head' }, h('div', {}, h('p', { class: 'eyebrow dark' }, 'Side by side'), h('h1', { class: 'display-2' }, 'Compare two parks'),
@@ -22,8 +22,8 @@ export async function renderCompare(root: HTMLElement, s: AppState): Promise<voi
     h('div', { class: 'controls' }, modeToggle(s.mode)),
     readout,
     h('div', { class: 'compare' },
-      h('div', {}, select('Park A', opts, a.code, (v) => setState({ a: v })), legA, hostA),
-      h('div', {}, select('Park B', opts, b.code, (v) => setState({ b: v })), legB, hostB)),
+      h('div', {}, parkPicker(idx, { context: { kind: 'compare', other: b.code }, label: 'Park A', value: a.code, includeNational: true, onPick: (v) => setState({ a: v }) }), legA, hostA),
+      h('div', {}, parkPicker(idx, { context: { kind: 'compare', other: a.code }, label: 'Park B', value: b.code, includeNational: true, onPick: (v) => setState({ b: v }) }), legB, hostB)),
   );
 
   let ha: HeatmapHandle | null = null, hb: HeatmapHandle | null = null;
