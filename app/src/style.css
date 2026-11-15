@@ -589,17 +589,59 @@ main { min-height: 60vh; position: relative; }
 .tool-blurb { color: var(--muted); font-size: 0.88rem; }
 .tool-card { color: inherit; text-decoration: none; }
 
-/* Pick-a-park entry state (pickPark.ts) */
-.pick-search { max-width: 34rem; margin-bottom: 2rem; }
-.pick-search .park-picker { width: 100%; }
-.pick-group { margin-bottom: 2rem; }
-.pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; }
-.pick-card {
-  display: flex; flex-direction: column; gap: 0.2rem; text-align: left; cursor: pointer; padding: 0.9rem 1rem;
-  font: inherit; color: inherit; transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+/* Pick-a-park entry state (pickPark.ts): an entrance-sign banner, then rows of small park signs. */
+.pick-hero {
+  position: relative; isolation: isolate; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
+  gap: 1.5rem 2.5rem; padding: 2.4rem 2.4rem 2.2rem; margin-bottom: 3rem; z-index: 2; /* its popover hangs over the cards */
+  background: var(--sign-bg); color: var(--sign-ink); border-radius: var(--radius);
+  --topo-line: var(--sign-line); --topo-grid: var(--sign-grid);
 }
-.pick-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--border-strong); }
-.pick-name { font-weight: 600; font-size: 1.02rem; }
+.pick-hero > svg.topo { overflow: hidden; clip-path: inset(0 round var(--radius)); }
+.pick-hero > :not(svg) { position: relative; z-index: 1; }
+.pick-hero-text { flex: 1 1 24rem; max-width: 36rem; }
+.pick-hero h1 { font: 800 clamp(2.4rem, 5.6vw, 4rem)/0.9 var(--font-sign); text-transform: uppercase; letter-spacing: 0.012em; margin: 0 0 0.85rem; }
+.pick-hero p { margin: 0; color: var(--sign-muted); font-size: 1rem; line-height: 1.5; }
+.pick-hero .park-picker { flex: 0 1 24rem; gap: 0.45rem; }
+.pick-hero .picker-label { color: var(--sign-muted); }
+.pick-hero .picker-box { width: 100%; height: 3.1rem; padding: 0 1.15rem; }
+
+.pick-group { margin-bottom: 3rem; }
+.pick-head { margin-bottom: 1.1rem; }
+.pick-head .section-title { margin-bottom: 0.35rem; }
+.pick-head p { margin: 0; }
+.sign-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); gap: 1rem; }
+@media (min-width: 1060px) { .sign-grid { grid-template-columns: repeat(4, 1fr); } }
+
+.sign-card {
+  position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; gap: 1.1rem;
+  min-height: 13.5rem; padding: 1.15rem 1.2rem 1.05rem; text-align: left; cursor: pointer; font: inherit;
+  background: var(--sign-bg); color: var(--sign-ink); border: 0; border-radius: var(--radius); box-shadow: var(--shadow-sm);
+  --topo-line: var(--sign-line); --topo-grid: var(--sign-grid);
+  --bar: rgb(241 236 223 / 0.42); --bar-peak: #CFE6BF;
+  transition: transform var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
+}
+.sign-card > :not(svg) { position: relative; z-index: 1; }
+.sign-card > svg.topo { transition: opacity var(--dur-2), transform calc(var(--dur-3) * 2) var(--ease-out); opacity: 0.55; }
+.sign-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+.sign-card:hover > svg.topo { opacity: 0.9; transform: scale(1.06); }
+.sign-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.sign-card-top { display: flex; flex-direction: column; gap: 0.35rem; }
+.sign-card .eyebrow { color: var(--sign-muted); margin: 0; }
+.sign-card-name { font: 800 1.75rem/0.92 var(--font-sign); text-transform: uppercase; letter-spacing: 0.015em; text-wrap: balance; }
+.sign-card-year { margin-top: auto; display: flex; flex-direction: column; gap: 0.3rem; }
+.sign-card-axis { display: grid; grid-template-columns: repeat(12, 1fr); text-align: center; font-size: 0.66rem; font-weight: 600; color: var(--sign-muted); }
+.sign-card-axis .now { color: var(--bar-peak); }
+.sign-card-stat { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.86rem; font-weight: 600; padding-top: 0.75rem; border-top: 1px solid var(--sign-line); }
+.sign-card-peak { color: var(--sign-muted); font-weight: 500; white-space: nowrap; }
+@media (max-width: 760px) {
+  .pick-hero { padding: 1.6rem 1.4rem 1.5rem; margin-bottom: 2.25rem; }
+  .sign-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; }
+  .sign-card { min-height: 11.5rem; padding: 0.9rem 0.85rem 0.8rem; gap: 0.8rem; }
+  .sign-card-name { font-size: 1.22rem; }
+  .sign-card-stat { flex-direction: column; gap: 0.1rem; font-size: 0.76rem; padding-top: 0.55rem; }
+  .sign-card-axis { font-size: 0.58rem; }
+}
+.stage.is-enter .sign-card { animation: rise var(--dur-3) var(--ease-out) backwards; animation-delay: calc(140ms + var(--i) * 35ms); }
 
 
 /* ---------- Page heads ---------- */
