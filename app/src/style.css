@@ -177,7 +177,10 @@ body[data-view="home"] .header-tools .search { display: none; }
 .warn { background: var(--warn-bg); color: var(--warn-text); padding: 0.55rem 0.8rem; border-radius: 10px; }
 .error { color: var(--annot-covid); }
 
-main { min-height: 60vh; }
+main { min-height: 60vh; position: relative; }
+/* Next page, built hidden in place while the current one stays up (see render() in main.ts). */
+.stage.is-pending { position: absolute; top: 0; left: 0; right: 0; visibility: hidden; pointer-events: none; }
+.stage.is-busy { opacity: 0.6; transition: opacity var(--dur-2) var(--ease-out); }
 .stage { max-width: 1180px; margin: 0 auto; padding: 2rem 24px 4rem; }
 .stage-full { max-width: none; padding: 0 0 3rem; }
 .stage-full > .section, .stage-full > .tiles { max-width: 1180px; margin: 0 auto; padding: 3.25rem 24px 0; }

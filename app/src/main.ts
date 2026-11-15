@@ -40,25 +40,35 @@ function renderNav(s: AppState): void {
   }, v.label)));
 }
 
-async function render(s: AppState): Promise<void> {
+async function render(s: AppState, opts: { scrollTop?: boolean } = {}): Promise<void> {
   const seq = ++renderSeq;
   hideTooltip();
   renderNav(s);
   const view = VIEWS.find((v) => v.id === s.view)!;
   document.title = s.view === 'home' ? 'Park Pulse — beat the crowds' : `${view.label} · Park Pulse`;
   document.body.dataset.view = s.view;
-  // Render into a fresh node so a slow, superseded render can't clobber a newer one.
   const key = `${s.view}:${s.view === 'compare' ? `${s.a}|${s.b}` : s.view === 'park' || s.view === 'drift' ? s.park : ''}`;
   const entering = key !== pageKey;
   pageKey = key;
-  const stage = h('div', { class: `${s.view === 'home' ? 'stage stage-full' : 'stage'}${entering ? ' is-enter' : ''}` });
-  app.replaceChildren(stage);
+  const stage = h('div', { class: s.view === 'home' ? 'stage stage-full' : 'stage' });
+  // Build the next page in the document (charts measure their width) but hidden, and keep
+  // the current page on screen until it's ready: no flash of an empty "Loading…" page with
+  // the footer jumping up. A slow, superseded render can't clobber a newer one.
+  const current = app.querySelector<HTMLElement>(':scope > .stage:not(.is-pending)');
+  if (current) { stage.classList.add('is-pending'); app.append(stage); } else app.replaceChildren(stage);
+  const slow = current ? window.setTimeout(() => current.classList.add('is-busy'), 250) : 0;
   try {
     await view.render(stage, s);
-    if (seq === renderSeq) paintTopo();
   } catch (err) {
-    if (seq === renderSeq) stage.replaceChildren(errorBox(String(err instanceof Error ? err.message : err)));
+    stage.replaceChildren(errorBox(String(err instanceof Error ? err.message : err)));
   }
+  clearTimeout(slow);
+  if (seq !== renderSeq) { stage.remove(); return; }
+  app.querySelectorAll(':scope > .stage').forEach((el) => el !== stage && el.remove());
+  stage.classList.remove('is-pending');
+  if (entering) stage.classList.add('is-enter'); // entrance starts at the swap, not while hidden
+  if (opts.scrollTop) scrollTo({ top: 0 });
+  paintTopo();
 }
 
 /* Theme: Auto (OS) → Day → Night. A per-viewer convenience, so localStorage is fine. */
@@ -147,8 +157,8 @@ async function boot(): Promise<void> {
   // Scroll to top only when moving to a new page (view or park), not on filter tweaks.
   let prev = getState();
   subscribe((s) => {
-    void render(s);
-    if (s.view !== prev.view || s.park !== prev.park) scrollTo({ top: 0 });
+    // A new page scrolls to the top once it has swapped in, not before.
+    void render(s, { scrollTop: s.view !== prev.view || s.park !== prev.park });
     prev = s;
   });
   await render(getState());
