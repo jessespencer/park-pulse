@@ -157,11 +157,6 @@ body[data-view="home"] .site-header { border-bottom-color: transparent; }
 #nav a:hover { color: var(--ink); }
 #nav a[aria-current="page"] { color: var(--ink); box-shadow: inset 0 -2px 0 var(--accent); }
 .header-tools { display: flex; gap: 0.6rem; align-items: center; }
-.search input {
-  width: 12rem; padding: 0.45rem 0.9rem; border-radius: 999px; font-size: 0.88rem;
-  border: 1px solid var(--border); background: var(--surface); color: var(--ink);
-}
-.search input::placeholder { color: var(--muted); }
 body[data-view="home"] .header-tools .search { display: none; }
 .theme-btn {
   width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
@@ -324,6 +319,38 @@ main { min-height: 60vh; }
   background: color-mix(in srgb, var(--sage) 16%, var(--surface)); color: var(--pine);
 }
 .pop-tile.unit { background: color-mix(in srgb, var(--quiet) 14%, var(--surface)); color: var(--quiet); }
+.pop-tile.all { background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--accent); }
+.pop-option .ic-check { flex: none; width: 18px; height: 18px; margin-left: auto; color: var(--accent); }
+
+/* ---------- Shared park picker (header search, Change park, Compare, Drift) ---------- */
+.park-picker { position: relative; display: inline-flex; flex-direction: column; gap: 0.25rem; }
+.picker-label { font-size: 0.75rem; font-weight: 500; color: var(--muted); }
+.picker-box {
+  display: flex; align-items: center; gap: 0.55rem; padding: 0 1rem; height: 46px; width: 22rem; max-width: 100%;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 999px; box-shadow: var(--shadow-sm);
+  cursor: text; transition: border-color 0.15s, box-shadow 0.15s;
+}
+.picker-box:hover { border-color: var(--border-strong); }
+.park-picker.open .picker-box, .picker-box:focus-within { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.picker-box .ic-search { flex: none; width: 17px; height: 17px; color: var(--muted); }
+.picker-box input {
+  flex: 1; min-width: 0; border: 0; padding: 0; background: transparent; outline: none;
+  font-size: 0.95rem; font-weight: 500; color: var(--ink); text-overflow: ellipsis;
+}
+.picker-box input::placeholder { color: var(--muted); opacity: 1; }
+.park-picker.header .picker-box { height: 38px; width: 13rem; padding: 0 0.85rem; box-shadow: none; }
+.park-picker.header .picker-box input { font-size: 0.88rem; font-weight: 400; }
+.park-picker.open.header .picker-box { width: 16rem; }
+.picker-pop { top: calc(100% + 8px); width: 440px; max-width: calc(100vw - 32px); }
+/* Narrow desktops: the header search folds to an icon and expands over the nav when used. */
+@media (max-width: 1120px) {
+  .park-picker.header { width: 38px; height: 38px; }
+  .park-picker.header .picker-box { position: absolute; right: 0; top: 0; width: 38px; padding: 0; justify-content: center; gap: 0; }
+  .park-picker.header .picker-box input { width: 0; flex: 0 0 0; opacity: 0; }
+  .park-picker.header.open .picker-box { width: 15rem; max-width: none; padding: 0 0.85rem; justify-content: flex-start; gap: 0.55rem; background: var(--surface); z-index: 2; }
+  .park-picker.header.open .picker-box input { flex: 1; opacity: 1; }
+}
+.picker-pop.align-right { left: auto; right: 0; }
 .pop-text { display: flex; flex-direction: column; min-width: 0; }
 .pop-title { font-weight: 600; font-size: 0.98rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pop-sub { font-size: 0.84rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -608,14 +635,14 @@ footer a:hover { color: var(--sign-ink); }
 /* ---------- Small screens ---------- */
 @media (max-width: 900px) {
   #nav { gap: 1.1rem; }
-  .search input { width: 9rem; }
 }
 @media (max-width: 760px) {
   body { font-size: 15px; }
   .site-header { position: static; }
   .header-inner { padding: 0.6rem 16px 0.3rem; min-height: 0; }
   .header-tools { margin-left: auto; }
-  .search input { width: 8rem; padding: 0.4rem 0.75rem; }
+  .picker-box { width: 100%; }
+  .park-picker.field { display: flex; width: 100%; }
   .brand-name { font-size: 1.2rem; }
   .header-inner { flex-wrap: wrap; column-gap: 0.75rem; }
   .field, .field select { max-width: 100%; }

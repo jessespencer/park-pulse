@@ -8,7 +8,8 @@ import * as d3 from 'd3';
 import * as topojson from 'topojson-client';
 import type { GeometryCollection, Topology } from 'topojson-specification';
 import statesTopo from 'us-atlas/states-10m.json';
-import { MONTHS_LONG, REGIONS, STATE_NAMES, fmtPct, isNationalPark, stateLine, type IndexFile, type ParkSummary } from '../data';
+import { MONTHS_LONG, REGIONS, STATE_NAMES, isNationalPark, type IndexFile, type ParkSummary } from '../data';
+import { PICKER_ICON, matchParks, optionEl, parkRow, parkTitle } from '../parkPicker';
 import { setState } from '../state';
 import { h } from '../ui';
 
@@ -17,10 +18,7 @@ type PanelId = 'park' | 'month' | 'region' | 'scope';
 const svg = (body: string, cls = 'ic') =>
   `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 const ICON = {
-  mountain: svg('<path d="M2.5 19.5 9 8.5l3.6 6 2.4-3.8 6.5 8.8z"/><path d="m7.4 11.2 1.6 1.4 1.3-1.2"/>'),
-  monument: svg('<path d="M12 3.5 14 8v12.5h-4V8z"/><path d="M6 20.5h12"/>'),
-  pin: svg('<path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>'),
-  search: svg('<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>', 'ic-search'),
+  ...PICKER_ICON,
   island: svg('<path d="M3 19.5c3-1.6 6-1.6 9 0s6 1.6 9 0"/><path d="M12 16V7"/><path d="M12 7c-2.5-2-5-1.6-6.5.2M12 7c2.5-2 5-1.6 6.5.2M12 7c-1-2.6-3-3.6-5-3.4M12 7c1-2.6 3-3.6 5-3.4"/>'),
   clear: svg('<path d="M7 7l10 10M17 7 7 17"/>'),
 };
@@ -98,27 +96,9 @@ export function renderFinder(idx: IndexFile, { now, suggested }: FinderOpts): HT
   /* ---------- park list (combobox) ---------- */
   let options: ParkSummary[] = [];
   let active = -1;
-  const label = (p: ParkSummary) => (idx.hasMetadata ? p.shortName || p.name : p.code);
+  const label = (p: ParkSummary) => parkTitle(idx, p);
 
-  function matches(q: string): ParkSummary[] {
-    const s = q.trim().toLowerCase();
-    if (!s) return suggested;
-    const score = (p: ParkSummary) => {
-      const n = p.name.toLowerCase(), sn = (p.shortName || '').toLowerCase();
-      if (p.code.toLowerCase() === s) return 0;
-      if (sn.startsWith(s) || n.startsWith(s)) return 1;
-      if (n.split(/\s+/).some((w) => w.startsWith(s))) return 2;
-      if (n.includes(s)) return 3;
-      if (p.states.some((st) => (STATE_NAMES[st] ?? st).toLowerCase().startsWith(s))) return 4;
-      return 9;
-    };
-    return idx.parks
-      .map((p) => [p, score(p)] as const)
-      .filter(([, sc]) => sc < 9)
-      .sort((a, b) => a[1] - b[1] || Number(isNationalPark(b[0])) - Number(isNationalPark(a[0])) || a[0].name.localeCompare(b[0].name))
-      .slice(0, 7)
-      .map(([p]) => p);
-  }
+  const matches = (q: string): ParkSummary[] => (q.trim() ? matchParks(idx, q) : suggested);
 
   function renderParkList(): void {
     const q = parkInput.value;
@@ -129,18 +109,8 @@ export function renderFinder(idx: IndexFile, { now, suggested }: FinderOpts): HT
       : `Quiet in ${MONTHS_LONG[now]}`;
     pops.park.replaceChildren(
       h('p', { class: 'pop-head' }, head),
-      ...options.map((p, i) => {
-        const tile = h('span', { class: `pop-tile ${isNationalPark(p) ? 'np' : 'unit'}` });
-        tile.innerHTML = isNationalPark(p) ? ICON.mountain : ICON.monument;
-        const sub = q.trim() || !p.profile
-          ? [p.designation !== 'Other' && p.designation !== 'Unknown' ? p.designation : '', stateLine(p.states)].filter(Boolean).join(' · ')
-          : `${fmtPct(p.profile[now], 1)} of its year in ${MONTHS_LONG[now]} · ${stateLine(p.states)}`;
-        return h('div', {
-          class: 'pop-option', role: 'option', id: `finder-opt-${i}`, 'aria-selected': String(i === active),
-          onpointerdown: (e: Event) => e.preventDefault(), // keep focus in the input
-          onclick: () => pickPark(p),
-        }, tile, h('span', { class: 'pop-text' }, h('span', { class: 'pop-title' }, label(p)), h('span', { class: 'pop-sub' }, sub)));
-      }));
+      ...options.map((p, i) => optionEl(parkRow(idx, p, q.trim() ? undefined : now), `finder-opt-${i}`,
+        { active: i === active, current: sel.park?.code === p.code, onPick: () => pickPark(p) })));
     syncActive();
   }
 

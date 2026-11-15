@@ -1,4 +1,3 @@
-import { NATIONAL, type IndexFile } from './data';
 import { setState, type Mode } from './state';
 
 type Attrs = Record<string, string | number | boolean | undefined | ((e: Event) => void)>;
@@ -42,13 +41,6 @@ export function select(
   const s = h('select', { onchange: (e) => onChange((e.target as HTMLSelectElement).value) },
     ...options.map((o) => h('option', { value: o.value, selected: o.value === current }, o.label)));
   return h('label', { class: 'field' }, h('span', {}, label), s);
-}
-
-export function parkOptions(idx: IndexFile, includeNational = true): { value: string; label: string }[] {
-  const opts = [...idx.parks]
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map((p) => ({ value: p.code, label: idx.hasMetadata ? `${p.name} (${p.code})` : p.code }));
-  return includeNational ? [{ value: NATIONAL, label: 'All NPS units (national total)' }, ...opts] : opts;
 }
 
 export const loading = (): HTMLElement => h('p', { class: 'muted loading' }, 'Loading…');

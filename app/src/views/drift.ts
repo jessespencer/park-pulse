@@ -1,8 +1,9 @@
 import * as d3 from 'd3';
-import { MONTHS, MONTHS_LONG, NATIONAL, fmtPct, loadIndex, loadPark, type ParkDetail } from '../data';
+import { MONTHS, MONTHS_LONG, fmtPct, loadIndex, loadPark, type ParkDetail } from '../data';
 import { sequentialInterpolator } from '../scales';
 import { setState, type AppState } from '../state';
-import { errorBox, fill, h, loading, parkOptions, select } from '../ui';
+import { parkPicker } from '../parkPicker';
+import { errorBox, fill, h, loading } from '../ui';
 
 /** A month is "in season" when it gets more than an even 1/12 share of the year. */
 const EVEN = 1 / 12;
@@ -48,7 +49,7 @@ export async function renderDrift(root: HTMLElement, s: AppState): Promise<void>
   fill(root, 
     h('section', { class: 'view-head' },
       h('div', {}, h('p', { class: 'eyebrow dark' }, 'Season drift'), h('h1', { class: 'display-2' }, park.name), h('p', { class: 'lead' }, summary)),
-      select('Park', parkOptions(idx), park.code === NATIONAL ? NATIONAL : park.code, (v) => setState({ park: v }))),
+      parkPicker(idx, { label: 'Park', value: park.code, includeNational: true, align: 'right', onPick: (v) => setState({ park: v }) })),
     h('h2', {}, 'Average monthly shape by decade'),
     h('p', { class: 'muted' }, 'Share of the year’s visits in each month, averaged over complete years in each decade (2020 excluded). Dashed line = an even 1/12 share.'),
     lines,

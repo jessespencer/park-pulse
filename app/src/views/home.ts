@@ -1,7 +1,7 @@
 import * as d3 from 'd3';
 import { tileScene, topo } from '../art';
 import { MONTHS_LONG, fmtPct, isNationalPark, loadIndex, type ParkSummary } from '../data';
-import { OFF_SEASON, miniFingerprint } from '../insights';
+import { miniFingerprint, quietestParks } from '../insights';
 import { setState, type View } from '../state';
 import { fill, h } from '../ui';
 import { renderFinder } from './finder';
@@ -20,8 +20,7 @@ export async function renderHome(root: HTMLElement): Promise<void> {
   const now = new Date().getMonth();
   const nps = idx.parks.filter((p) => isNationalPark(p) && p.profile);
   const pool = nps.length ? nps : idx.parks.filter((p) => p.profile);
-  const open = pool.filter((p) => p.profile![now] >= OFF_SEASON);
-  const quiet = [...open].sort((a, b) => a.profile![now] - b.profile![now]).slice(0, 5);
+  const quiet = quietestParks(idx.parks, now, 5);
   const busy = [...pool].sort((a, b) => b.profile![now] - a.profile![now]).slice(0, 5);
   const yMax = d3.quantile(pool.map((p) => d3.max(p.profile!)!).sort(d3.ascending), 0.95) ?? 0.25;
   const lastYear = d3.max(idx.parks, (p) => p.lastYear);

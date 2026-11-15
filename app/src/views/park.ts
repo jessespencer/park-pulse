@@ -5,7 +5,8 @@ import { renderHeatmap } from '../heatmap';
 import { busyMonths, monthSpan, quietMonths } from '../insights';
 import { setState, type AppState } from '../state';
 import { hideTooltip, showTooltip } from '../tooltip';
-import { errorBox, fill, h, loading, modeToggle, parkOptions, select } from '../ui';
+import { parkPicker } from '../parkPicker';
+import { errorBox, fill, h, loading, modeToggle } from '../ui';
 
 const KIND_LABEL = { shutdown: 'Shutdown', covid: 'COVID-19', data: 'Data note' } as const;
 
@@ -54,7 +55,7 @@ export async function renderPark(root: HTMLElement, s: AppState): Promise<void> 
   fill(root,
     sign,
     h('div', { class: 'park-tools' },
-      select('Change park', parkOptions(idx), park.code, (v) => setState({ park: v })),
+      parkPicker(idx, { label: 'Change park', value: park.code, includeNational: true, onPick: (v) => setState({ park: v }) }),
       !isNat && h('a', { class: 'chip-link', href: `?view=drift&park=${park.code}`, onclick: (e: Event) => { e.preventDefault(); setState({ view: 'drift' }); } }, 'Season drift →'),
       !isNat && h('a', { class: 'chip-link', href: `?view=compare&a=${park.code}`, onclick: (e: Event) => { e.preventDefault(); setState({ view: 'compare', a: park.code }); } }, 'Compare →')),
     notes.childElementCount ? contourRule() : null,

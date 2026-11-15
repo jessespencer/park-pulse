@@ -6,7 +6,7 @@ import '@fontsource-variable/public-sans';
 import './style.css';
 import { emblem, paintTopo, topo } from './art';
 import { loadIndex } from './data';
-import { bindSearch, parkLabel } from './search';
+import { parkPicker } from './parkPicker';
 import { getState, setState, subscribe, type AppState, type View } from './state';
 import { hideTooltip } from './tooltip';
 import { errorBox, h } from './ui';
@@ -115,9 +115,10 @@ async function boot(): Promise<void> {
   document.getElementById('brand')!.addEventListener('click', (e) => { e.preventDefault(); setState({ view: 'home' }); });
 
   const idx = await loadIndex();
-  const list = document.getElementById('park-list')!;
-  for (const p of [...idx.parks].sort((a, b) => a.name.localeCompare(b.name))) list.append(h('option', { value: parkLabel(idx, p) }));
-  bindSearch(document.getElementById('search') as HTMLInputElement, idx);
+  document.getElementById('header-search')!.replaceChildren(parkPicker(idx, {
+    variant: 'header', placeholder: 'Search parks', align: 'right',
+    onPick: (code) => setState({ view: getState().view === 'drift' ? 'drift' : 'park', park: code }),
+  }));
 
   if (!idx.hasMetadata) {
     const b = document.getElementById('banner')!;
