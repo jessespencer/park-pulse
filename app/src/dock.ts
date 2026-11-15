@@ -16,6 +16,17 @@ import { renderFinder, type PanelId } from './views/finder';
 import { durMs, h, reduceMotion } from './ui';
 
 const EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
+const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
+/** The same curve as EASE, for motion driven frame by frame. */
+const ease = (() => {
+  const [x1, y1, x2, y2] = [0.2, 0.8, 0.2, 1];
+  const bz = (t: number, a: number, b: number) => 3 * a * t * (1 - t) ** 2 + 3 * b * t * t * (1 - t) + t ** 3;
+  return (x: number) => {
+    let lo = 0, hi = 1, t = x;
+    for (let i = 0; i < 24; i++) { t = (lo + hi) / 2; if (bz(t, x1, x2) < x) lo = t; else hi = t; }
+    return bz(t, y1, y2);
+  };
+})();
 type Where = 'hero' | 'header' | 'panel';
 export interface Dock { update: (s: AppState) => void }
 
@@ -28,7 +39,7 @@ export function mountDock(headerSlot: HTMLElement, header: HTMLElement, idx: Ind
   let desired: Where = 'header';
   let heroSlot: HTMLElement | null = null;
   let heroInView = false;
-  let finishMorph: (() => void) | null = null;
+  let stopMorph: ((settle: boolean) => void) | null = null;
 
   const finder = renderFinder(idx, {
     now, uid: 'sbar',
@@ -64,17 +75,22 @@ export function mountDock(headerSlot: HTMLElement, header: HTMLElement, idx: Ind
   /** Move the one bar to a slot; animate its box from here to there. */
   function place(to: Where, animate: boolean): void {
     desired = to;
-    if (finishMorph) {
+    // Mid-move and asked elsewhere: carry on from wherever the bar is right now, never snap.
+    let resume: { box: DOMRect; full: number; compact: number } | null = null;
+    if (stopMorph) {
       if (to === where) return;                  // already heading there: let the motion finish
-      finishMorph();                             // otherwise complete it, then move on
+      resume = { box: bar.getBoundingClientRect(), full: +getComputedStyle(full).opacity, compact: +getComputedStyle(compact).opacity };
+      stopMorph(false);
     }
     if (to === where && form.parentElement === slotFor(to)) return;
     const from = where;
-    const first = bar.getBoundingClientRect();
+    const first = resume?.box ?? bar.getBoundingClientRect();
     const fromCompact = form.classList.contains('is-compact');
     const before = (fromCompact ? compact : full).getBoundingClientRect();
+    const y0 = scrollY;
 
     where = to;
+    header.classList.toggle('has-bar', to !== 'hero');  // the header fills as the bar arrives
     if (to === 'panel') showPanel(true);
     slotFor(to).append(form);
     const toCompact = to === 'header';
@@ -84,54 +100,70 @@ export function mountDock(headerSlot: HTMLElement, header: HTMLElement, idx: Ind
     const dur = durMs('--dur-3');
 
     const done = () => {
-      finishMorph = null;
+      stopMorph = null;
       if (from === 'panel' && to !== 'panel') showPanel(false);
     };
     if (!animate || !dur || reduceMotion() || !first.width || !last.width) { done(); return; }
 
-    // Lift the bar onto the top layer at its landing box, then animate the box from the start.
+    // Lift the bar onto the top layer and drive its box each frame. Ends that live in the page
+    // (the hero, or anything on phones where the header scrolls) are re-read against the scroll,
+    // so the bar lands where its slot is now, not where it was when the move began.
     layer.append(form);
     bar.classList.add('is-morphing');
-    const fullW = fromCompact ? after.width : before.width;
-    const compactW = fromCompact ? before.width : after.width;
-    full.style.width = px(fullW);
-    compact.style.width = px(compactW);
-    Object.assign(bar.style, { position: 'fixed', margin: '0', left: px(last.left), top: px(last.top), width: px(last.width), height: px(last.height) });
-    const t = { duration: dur, easing: EASE };
+    full.style.width = px(fromCompact ? after.width : before.width);
+    compact.style.width = px(fromCompact ? before.width : after.width);
+    const scrolls = (w: Where) => w === 'hero' || isPhone();
+    const fromScrolls = !resume && scrolls(from), toScrolls = scrolls(to);
+    const frame = (k: number) => {
+      const dy = scrollY - y0;
+      const ft = first.top - (fromScrolls ? dy : 0), lt = last.top - (toScrolls ? dy : 0);
+      Object.assign(bar.style, {
+        left: px(lerp(first.left, last.left, k)), top: px(lerp(ft, lt, k)),
+        width: px(lerp(first.width, last.width, k)), height: px(lerp(first.height, last.height, k)),
+      });
+    };
+    Object.assign(bar.style, { position: 'fixed', margin: '0' });
+    frame(0);
+
+    const t = { duration: dur, easing: 'linear' };
+    // Even cross-dissolve: as one layout fades the other rises at the same rate, so together
+    // they always read as one full bar, never an empty box.
+    const fade = (el: HTMLElement, a: number, b: number) =>
+      el.animate([{ opacity: a }, { opacity: a, offset: 0.08 }, { opacity: b, offset: 0.55 }, { opacity: b }], t);
     const anims: Animation[] = [
-      bar.animate([
-        { left: px(first.left), top: px(first.top), width: px(first.width), height: px(first.height) },
-        { left: px(last.left), top: px(last.top), width: px(last.width), height: px(last.height) },
-      ], t),
+      fade(full, resume?.full ?? (fromCompact ? 0 : 1), toCompact ? 0 : 1),
+      fade(compact, resume?.compact ?? (fromCompact ? 1 : 0), toCompact ? 1 : 0),
     ];
-    if (fromCompact !== toCompact) {
-      const out = fromCompact ? compact : full, inn = fromCompact ? full : compact;
-      anims.push(out.animate([{ opacity: 1 }, { opacity: 0, offset: 0.35 }, { opacity: 0 }], t));
-      anims.push(inn.animate([{ opacity: 0 }, { opacity: 0, offset: 0.45 }, { opacity: 1 }], t));
-    } else {
-      // Same layout at both ends: keep only the active one showing.
-      (toCompact ? full : compact).style.opacity = '0';
-    }
+    const te = { duration: dur, easing: EASE };
     if (to === 'panel' && from !== 'panel') {
-      anims.push(panel.animate([{ clipPath: 'inset(0 0 100% 0)' }, { clipPath: 'inset(0 0 0 0)' }], t));
-      anims.push(scrim.animate([{ opacity: 0 }, { opacity: 1 }], t));
+      anims.push(panel.animate([{ clipPath: 'inset(0 0 100% 0)' }, { clipPath: 'inset(0 0 0 0)' }], te));
+      anims.push(scrim.animate([{ opacity: 0 }, { opacity: 1 }], te));
     } else if (from === 'panel' && to !== 'panel') {
-      anims.push(panel.animate([{ clipPath: 'inset(0 0 0 0)' }, { clipPath: 'inset(0 0 100% 0)' }], { ...t, fill: 'forwards' }));
-      anims.push(scrim.animate([{ opacity: 1 }, { opacity: 0 }], { ...t, fill: 'forwards' }));
+      anims.push(panel.animate([{ clipPath: 'inset(0 0 0 0)' }, { clipPath: 'inset(0 0 100% 0)' }], { ...te, fill: 'forwards' }));
+      anims.push(scrim.animate([{ opacity: 1 }, { opacity: 0 }], { ...te, fill: 'forwards' }));
     }
 
-    const cleanup = () => {
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const k = Math.min(1, (now - start) / dur);
+      frame(ease(k));
+      if (k < 1) raf = requestAnimationFrame(tick); else stop(true);
+    };
+    raf = requestAnimationFrame(tick);
+
+    const stop = (settle: boolean) => {
+      cancelAnimationFrame(raf);
       anims.forEach((a) => a.cancel());
       bar.classList.remove('is-morphing');
       ['position', 'margin', 'left', 'top', 'width', 'height'].forEach((k) => bar.style.removeProperty(k));
-      full.style.width = ''; compact.style.width = ''; full.style.opacity = ''; compact.style.opacity = '';
+      full.style.width = ''; compact.style.width = '';
       slotFor(where).append(form);
       done();
       // Something asked for a different slot while we were moving: go there now.
-      if (desired !== where) place(desired, false);
+      if (settle && desired !== where) place(desired, true);
     };
-    finishMorph = cleanup;
-    anims[0].finished.then(() => { if (finishMorph === cleanup) cleanup(); }, () => {});
+    stopMorph = stop;
   }
 
   /* ---------- expand / collapse (header pill ↔ panel) ---------- */
@@ -166,6 +198,14 @@ export function mountDock(headerSlot: HTMLElement, header: HTMLElement, idx: Ind
     if (where === 'hero' && g < DOCK_AT) place('header', true);
     else if (where === 'header' && g > UNDOCK_AT) place('hero', true);
     heroInView = where === 'hero' ? g >= DOCK_AT : g > UNDOCK_AT;
+    fadeHeroCopy();
+  }
+  // The header is clear over the hero, so the hero's lines fade as they reach it rather than
+  // sliding under the logo and menu.
+  function fadeHeroCopy(): void {
+    const copy = heroSlot?.parentElement?.querySelectorAll<HTMLElement>(':scope > :not(.sbar-slot)') ?? [];
+    const hb = header.getBoundingClientRect().bottom;
+    copy.forEach((el) => { el.style.opacity = isPhone() ? '' : String(Math.max(0, Math.min(1, (el.getBoundingClientRect().top - hb + 12) / 72))); });
   }
   const onScroll = () => { if (!ticking) { ticking = true; requestAnimationFrame(checkHero); } };
   addEventListener('scroll', onScroll, { passive: true });
@@ -189,6 +229,8 @@ export function mountDock(headerSlot: HTMLElement, header: HTMLElement, idx: Ind
       }
       // A new page settles the bar where it belongs, without motion; scrolling animates from here on.
       place(heroSlot && (heroInView || isPhone()) ? 'hero' : 'header', false);
+      header.classList.toggle('has-bar', where !== 'hero');
+      checkHero();
     },
   };
 }

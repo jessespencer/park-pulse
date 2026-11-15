@@ -149,9 +149,10 @@ body .site-header.scrolled {
   box-shadow: 0 1px 0 var(--border), 0 10px 24px -14px rgb(0 0 0 / 0.35);
 }
 body[data-view="home"] .site-header { border-bottom-color: transparent; }
-/* Home, at the top: header and hero are one surface. The header goes clear and the hero's
-   topo and grid run up behind the logo and menu; it turns solid again once you scroll. */
-body[data-view="home"] .site-header:not(.scrolled):not(.dock-expanded) { background: transparent; box-shadow: none; }
+/* Home: header and hero are one surface. The header stays clear over the hero (its topo and
+   grid run up behind the logo and menu) and fills in as the search bar docks into it. */
+body[data-view="home"] .site-header { transition-duration: var(--dur-3); }
+body[data-view="home"] .site-header:not(.has-bar):not(.dock-expanded) { background: transparent; box-shadow: none; }
 body[data-view="home"] .stage-full > .hero:first-child {
   margin-top: calc(-1 * var(--header-h, 0px));
   padding-top: calc(var(--header-h, 0px) + clamp(3.5rem, 10vh, 6rem));
