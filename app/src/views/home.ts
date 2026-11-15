@@ -2,17 +2,10 @@ import * as d3 from 'd3';
 import { tileScene, topo } from '../art';
 import { MONTHS_LONG, fmtPct, isNationalPark, loadIndex, type ParkSummary } from '../data';
 import { miniFingerprint, quietestParks } from '../insights';
-import { setState, type View } from '../state';
+import { PAGES } from '../pages';
+import { setState } from '../state';
 import { fill, h } from '../ui';
-import { renderFinder } from './finder';
 
-const TOOLS: { view: View; title: string; blurb: string; icon: string }[] = [
-  { view: 'when', title: 'When to go', blurb: 'Pick a month, get the quietest parks — ranked fairly, big or small.', icon: 'M4 6h16v14H4zM4 10h16M8 3v5M16 3v5M9 14h2v2H9z' },
-  { view: 'park', title: 'Park heatmap', blurb: 'Every month since 1979 for one park. Shutdowns and closures flagged.', icon: 'M4 4h4v4H4zM10 4h4v4h-4zM16 4h4v4h-4zM4 10h4v4H4zM10 10h4v4h-4zM16 10h4v4h-4zM4 16h4v4H4zM10 16h4v4h-4z' },
-  { view: 'wall', title: 'Fingerprints', blurb: 'All 64 national parks side by side: who peaks when, and how hard.', icon: 'M4 20V12M8 20V7M12 20V4M16 20V9M20 20v-6' },
-  { view: 'drift', title: 'Season drift', blurb: 'Has the busy season stretched since the ’80s? See it decade by decade.', icon: 'M3 17c3-6 6-9 9-9s6 3 9 9M3 12c3-4 6-6 9-6s6 2 9 6' },
-  { view: 'compare', title: 'Compare', blurb: 'Two parks side by side, hover linked month to month.', icon: 'M4 5h7v14H4zM13 5h7v14h-7z' },
-];
 
 
 export async function renderHome(root: HTMLElement): Promise<void> {
@@ -25,14 +18,15 @@ export async function renderHome(root: HTMLElement): Promise<void> {
   const yMax = d3.quantile(pool.map((p) => d3.max(p.profile!)!).sort(d3.ascending), 0.95) ?? 0.25;
   const lastYear = d3.max(idx.parks, (p) => p.lastYear);
 
-  const finder = renderFinder(idx, { now });
+  // The site's one search bar (dock.ts) sits here while the hero is on screen.
+  const finder = h('div', { class: 'sbar-slot' });
 
   const hero = h('section', { class: 'hero' },
     topo({ seed: 7, scale: 560, levels: 26, grid: 240 }),
     h('div', { class: 'hero-inner' },
-      h('h1', { class: 'display' }, 'Beat the crowds at ', h('em', {}, 'America’s'), ' national parks'),
+      h('h1', { class: 'display' }, 'Find the off-peak months at ', h('em', {}, 'America’s'), ' national parks'),
       h('p', { class: 'lede' },
-        `${lastYear! - 1979 + 1} years of monthly visits. See each park’s busy season, how it’s shifted, and which parks are quiet when you want to go.`),
+        `Monthly visits to every park unit, 1979–${lastYear}. See when each park is busiest, how that has changed, and which parks are in their slow season when you want to go.`),
       finder),
     h('button', {
       type: 'button', class: 'hero-cue', 'aria-label': 'Scroll to explore',
@@ -65,26 +59,24 @@ export async function renderHome(root: HTMLElement): Promise<void> {
   fill(root,
     hero,
     h('div', { class: 'tiles' },
-      tile('tile-1', 'quiet', 'When to go', `Quiet parks this ${MONTHS_LONG[now]}`, 'See the list →', () => setState({ view: 'when', month: now + 1 })),
-      tile('tile-2', 'summer', 'Season drift', 'Has summer gotten longer?', 'See it decade by decade →', () => setState({ view: 'drift' }))),
+      tile('tile-1', 'quiet', 'Fingerprints', 'Parks that peak outside summer', 'Browse by peak month', () => setState({ view: 'wall', sort: 'peak' })),
+      tile('tile-2', 'summer', 'Season drift', 'Has summer gotten longer?', 'Compare decades', () => setState({ view: 'drift' }))),
     h('section', { class: 'section' },
       h('header', { class: 'section-head' },
-        h('p', { class: 'eyebrow' }, 'Field report'),
-        h('h2', { class: 'section-title' }, `This ${MONTHS_LONG[now]} in the parks`),
-        h('p', { class: 'muted' }, `Share of each park’s typical year that falls in ${MONTHS_LONG[now]}. Bars show the full year; the highlighted bar is this month.`)),
+        h('h2', { class: 'section-title' }, `${MONTHS_LONG[now]} in the national parks`),
+        h('p', { class: 'muted' }, `Share of year: the part of a park’s typical year of visits that falls in ${MONTHS_LONG[now]}. The bars show the whole year, with ${MONTHS_LONG[now]} highlighted.`)),
       h('div', { class: 'now-grid' },
-        monthCol('Quietest right now', 'Open parks with the smallest share of their year this month.', quiet),
-        monthCol('Peak season right now', 'Parks where this month carries the most weight.', busy))),
+        monthCol('Off-peak', `Open parks with the lowest share of year in ${MONTHS_LONG[now]}.`, quiet),
+        monthCol('Peak season', `Parks with the highest share of year in ${MONTHS_LONG[now]}.`, busy)),
+      h('p', {}, h('a', { class: 'chip-link', href: `?view=when&month=${now + 1}`, onclick: (e: Event) => { e.preventDefault(); setState({ view: 'when', month: now + 1 }); } }, `All off-peak parks in ${MONTHS_LONG[now]}`))),
     h('section', { class: 'section' },
       h('header', { class: 'section-head' },
-        h('p', { class: 'eyebrow' }, 'Pick your trail'),
-        h('h2', { class: 'section-title' }, 'Five ways in')),
-      h('div', { class: 'tool-grid' }, ...TOOLS.map((t) => {
+        h('h2', { class: 'section-title' }, 'Explore the data')),
+      h('div', { class: 'tool-grid' }, ...PAGES.map((t) => {
         const icon = h('span', { class: 'tool-icon' });
         icon.innerHTML = `<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="${t.icon}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
-        return h('button', { type: 'button', class: 'tool-card', onclick: () => setState({ view: t.view }) },
-          icon, h('span', { class: 'tool-title' }, t.title), h('span', { class: 'tool-blurb' }, t.blurb),
-          h('span', { class: 'tool-go' }, 'Go →'));
+        return h('a', { class: 'tool-card', href: `?view=${t.id}`, onclick: (e: Event) => { e.preventDefault(); setState({ view: t.id }); } },
+          icon, h('span', { class: 'tool-title' }, t.label), h('span', { class: 'tool-blurb' }, t.blurb));
       }))),
   );
 }

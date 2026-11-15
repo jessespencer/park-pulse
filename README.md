@@ -1,4 +1,4 @@
-# Park Pulse — when America's national parks get crowded
+# Park Pulse — when America's national parks are busiest
 
 An interactive, static web app showing the monthly rhythm of recreation visits
 across the National Park System as calendar heatmaps, 1979–2025.
@@ -7,12 +7,15 @@ across the National Park System as calendar heatmaps, 1979–2025.
 
 **Views**
 
-- **Home**. A park / month / region / type finder, "this month in the parks" (the quietest and busiest national parks right now), and a way into each tool.
-- **Park heatmap.** Rows are years and columns are months. Color can show absolute visits, share of the year, or an index vs. the park's own 1979–2019 median for that month. Hover or tap a cell for the exact count. Shutdowns and closures are flagged.
-- **Fingerprints.** Each park's typical 12-month shape. Sort by peak month, peakiness (the share of visits in the busiest 3 months), or total visits.
-- **When to go.** Pick a month and optionally a region or state to get a map and a ranked list of the quietest parks. Parks are ranked by *share of their own year* that falls in that month, so big and small parks compare fairly.
-- **Season drift.** How one park's peak month and busy season moved from decade to decade.
-- **Compare.** Two parks side by side with linked hover.
+- **Home**. A park / month / region / type search, this month's off-peak and peak-season national parks, and a way into each page.
+- **When to go.** Pick a month and optionally a region or state to get a map and a ranked list of parks at their least busy. Parks are ranked by *share of year*: the part of each park's annual visits that falls in that month. A low share means a park's slow season, not necessarily a small crowd, so each card also shows a visit estimate.
+- **Park profile.** Everything about one park, under its entrance sign, in three tabs:
+  - *Overview*: peak month, slow months and busy season, a typical-year chart, and a heatmap of every month since 1979 (rows are years, columns are months). Color can show visits, share of year, or visits vs. usual. Shutdowns and closures are flagged.
+  - *Season drift*: how the park's peak month and busy season moved from decade to decade.
+  - *Compare*: the park's heatmap beside a second park's, picked on the same page; pointing at a month shows both parks' counts.
+
+  Until a park is chosen, Park profile opens on a park search with suggestions; there's no default park.
+- **Fingerprints.** Every national park's typical year, side by side. Sort by peak month, busiest 3 months (their share of the year's visits), or total visits.
 
 Every selection lives in the URL, so any view can be shared as a link.
 
@@ -59,7 +62,7 @@ date from the package's metadata.
 ## How the measures work
 
 - **Share of year** is a month's visits divided by that calendar year's total. It's computed only for years with all 12 months reported.
-- **Index vs. normal** is 100 × visits ÷ the park's median for that calendar month over 1979–2019. 100 means typical, 200 means double. The index uses a teal↔rust diverging scale around a neutral midpoint. Visits and share use a single-hue "pine" ramp whose lightness is strictly monotonic. Both are colorblind-safe, and each theme gets its own validated steps (see `app/src/scales.ts`).
+- **Vs. usual** (the index) is 100 × visits ÷ the park's median for that calendar month over 1979–2019. 100 means typical, 200 means double. The index uses a teal↔rust diverging scale around a neutral midpoint. Visits and share use a single-hue "pine" ramp whose lightness is strictly monotonic. Both are colorblind-safe, and each theme gets its own validated steps (see `app/src/scales.ts`).
 - **Typical profile** (fingerprints and When to go) is the mean monthly share across complete years 2015–2025, excluding 2020. A park needs at least 3 such years to get a profile.
 - **Off-season** in When to go means a month with under 2% of a park's year. Such months usually mean seasonal closure. They're hidden by default, and a checkbox shows them.
 
@@ -74,6 +77,7 @@ date from the package's metadata.
 - **Four published values are negative**: SAJH 2002-11, LIBO 2003-01, MORR 2011-12 and RUCA 2004-11. They look like NPS correction entries. They're shown as published and flagged as data notes.
 - **Preliminary data.** This build uses only the finalized 2025 package. NPS posts current-year (2026) monthly numbers on IRMA Stats as *preliminary* and revises them, so they aren't included. If you add them later, label them preliminary.
 - **IRMA and NPS API codes don't line up one-to-one.** For example, IRMA counts Sequoia and Kings Canyon separately while the API has a single SEKI record, and JEFM is the Thomas Jefferson Memorial, not Gateway Arch (JEFF). `CROSSWALK` in `pipeline/build.py` lists each mapping explicitly. Units the API folds into a larger record use that record's location. The API leaves designation blank for about a dozen DC memorials, and those show as "Other".
+- **The NPS API capitalizes every word in park names** ("Gates Of The Arctic"). The build lowercases small words like "of" and "the" unless they start the name or follow a comma.
 - **Designations are current, not historical.** The data uses today's designations: Chiricahua became the 64th National Park on Oct 20, 2026, and it's included under "National Parks" even though its 1979–2025 counts are from its years as a national monument. Redwood ("National and State Parks") also counts as a National Park.
 - "Recreation visits" are not unique visitors. One person entering a park on three days counts as three visits.
 - The map uses an Albers USA projection, which leaves out some territories (Guam, American Samoa, the Northern Mariana Islands). Those parks still appear in the ranked list.

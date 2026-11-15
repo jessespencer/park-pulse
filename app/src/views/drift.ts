@@ -2,10 +2,11 @@ import * as d3 from 'd3';
 import { MONTHS, MONTHS_LONG, fmtPct, loadIndex, loadPark, type ParkDetail } from '../data';
 import { sequentialInterpolator } from '../scales';
 import { setState, type AppState } from '../state';
-import { parkPicker } from '../parkPicker';
+import { parkPage } from './parkHeader';
+import { renderPickPark } from './pickPark';
 import { errorBox, fill, h, loading } from '../ui';
 
-/** A month is "in season" when it gets more than an even 1/12 share of the year. */
+/** A month is "in season" when it's busier than an average month (1/12 of the year). */
 const EVEN = 1 / 12;
 
 interface Decade { label: string; start: number; years: number[]; profile: number[] }
@@ -22,12 +23,25 @@ function decades(park: ParkDetail): Decade[] {
 const seasonText = (p: number[]): string => {
   const months = p.map((v, i) => (v > EVEN ? i : -1)).filter((i) => i >= 0);
   if (!months.length) return 'no clear season';
-  return `${MONTHS[months[0]]}–${MONTHS[months[months.length - 1]]} (${months.length} mo)`;
+  return `${MONTHS[months[0]]}–${MONTHS[months[months.length - 1]]} (${months.length} months)`;
+};
+
+const peakText = (first: Decade, last: Decade): string => {
+  const a = MONTHS_LONG[d3.maxIndex(first.profile)], b = MONTHS_LONG[d3.maxIndex(last.profile)];
+  return a === b ? `The peak has stayed in ${a} since the ${first.label}.` : `The peak moved from ${a} in the ${first.label} to ${b} in the ${last.label}.`;
 };
 
 export async function renderDrift(root: HTMLElement, s: AppState): Promise<void> {
   fill(root, loading());
-  const [idx, park] = await Promise.all([loadIndex(), loadPark(s.park).catch(() => null)]);
+  if (!s.park) {
+    renderPickPark(root, await loadIndex(), {
+      title: 'Season drift', label: 'Find a park',
+      lede: 'Pick a park to see how its busy season has moved, decade by decade, since 1979.',
+      onPick: (v) => setState({ park: v }),
+    });
+    return;
+  }
+  const park = await loadPark(s.park).catch(() => null);
   if (!park) {
     fill(root, errorBox(`No visitation data for park code “${s.park}”.`));
     return;
@@ -43,21 +57,19 @@ export async function renderDrift(root: HTMLElement, s: AppState): Promise<void>
     })));
   const first = ds[0], last = ds[ds.length - 1];
   const summary = first && last && first !== last
-    ? `Peak went from ${MONTHS_LONG[d3.maxIndex(first.profile)]} in the ${first.label} to ${MONTHS_LONG[d3.maxIndex(last.profile)]} in the ${last.label}; busy season from ${seasonText(first.profile)} to ${seasonText(last.profile)}.`
+    ? `${peakText(first, last)} The busy season went from ${seasonText(first.profile)} in the ${first.label} to ${seasonText(last.profile)} in the ${last.label}.`
     : 'Not enough complete years to compare decades.';
 
-  fill(root, 
-    h('section', { class: 'view-head' },
-      h('div', {}, h('p', { class: 'eyebrow dark' }, 'Season drift'), h('h1', { class: 'display-2' }, park.name), h('p', { class: 'lead' }, summary)),
-      parkPicker(idx, { context: { kind: 'drift' }, label: 'Park', value: park.code, includeNational: true, onPick: (v) => setState({ park: v }) })),
+  fill(root, ...parkPage(park, 'drift',
+    h('p', { class: 'lead drift-lead' }, summary),
     h('h2', {}, 'Average monthly shape by decade'),
-    h('p', { class: 'muted' }, 'Share of the year’s visits in each month, averaged over complete years in each decade (2020 excluded). Dashed line = an even 1/12 share.'),
+    h('p', { class: 'muted' }, 'Share of the year’s visits in each month, averaged over complete years in each decade (2020 excluded). The dashed line is an average month.'),
     lines,
     h('h2', {}, 'Year by year'),
-    h('p', { class: 'muted' }, 'Bars = busy season (months above an even share); dot = peak month. Hatched years are incomplete or 2020.'),
+    h('p', { class: 'muted' }, 'Bars mark the busy season (months busier than an average month); the dot is the peak month. Hatched years are incomplete, or 2020.'),
     strip,
     table,
-  );
+  ));
   drawLines(lines, ds);
   drawStrip(strip, park);
 }

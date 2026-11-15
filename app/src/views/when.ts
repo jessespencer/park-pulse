@@ -50,24 +50,24 @@ export async function renderWhen(root: HTMLElement, s: AppState): Promise<void> 
 
   fill(root,
     h('section', { class: 'page-head' },
-      h('p', { class: 'eyebrow dark' }, 'Trip planner'),
-      h('h1', { class: 'display-2' }, `Quiet parks in ${MONTHS_LONG[m]}`),
+      h('p', { class: 'eyebrow dark' }, 'When to go'),
+      h('h1', { class: 'display-2' }, `Off-peak parks in ${MONTHS_LONG[m]}`),
       h('p', { class: 'explain' },
-        `Ranked by the share of each park’s own yearly visits that fall in ${MONTHS_LONG[m]}, so a small park and a giant one are compared on how busy the month is for them, not on raw crowd size.`)),
+        `Parks are ranked by share of year: the part of each park’s annual visits that falls in ${MONTHS_LONG[m]}. A low share means the park is in its slow season. A big park can still be busy in its slow season, so check the visit estimate on each card.`)),
     h('div', { class: 'filter-bar panel' },
       monthStrip,
       h('div', { class: 'filter-row' },
         regionChips,
         statePicker({ label: 'State', value: s.st, states, counts: stateCounts, unit: s.scope === 'np' && idx.hasMetadata ? 'national park' : 'park unit', onPick: (v) => setState({ st: v }) }),
         idx.hasMetadata && segmented<'np' | 'all'>('Which units', [
-          { value: 'np', label: 'National Parks' }, { value: 'all', label: 'All units' }], s.scope, (v) => setState({ scope: v })),
+          { value: 'np', label: 'National parks' }, { value: 'all', label: 'All park units' }], s.scope, (v) => setState({ scope: v })),
         toggleSwitch(`Hide off-season (under ${fmtPct(OFF_SEASON, 0)} of the year)`, s.open, (v) => setState({ open: v })))),
     !idx.hasMetadata && h('p', { class: 'warn' }, 'Park names, states and locations aren’t loaded yet (NPS API metadata missing), so filters and the map are empty.'),
     h('div', { class: 'when-layout' },
       h('div', { class: 'when-results' },
-        h('h2', { class: 'section-title' }, `${ranked.length} park${ranked.length === 1 ? '' : 's'}, quietest first`),
+        h('h2', { class: 'section-title' }, `${ranked.length} park${ranked.length === 1 ? '' : 's'}, lowest share first`),
         ranked.length ? list : h('p', { class: 'muted' }, 'No parks match these filters.'),
-        ranked.length > SHOW && h('p', { class: 'muted small' }, `Showing the ${SHOW} quietest. Narrow by region or state to see more.`),
+        ranked.length > SHOW && h('p', { class: 'muted small' }, `Showing the first ${SHOW}. Narrow by region or state to see the rest.`),
         s.open && offSeason.length > 0 && h('p', { class: 'muted small' },
           `Off-season in ${MONTHS_LONG[m]} (hidden): `,
           offSeason.slice(0, 10).map((p) => p.shortName).join(', '), offSeason.length > 10 ? '…' : '')),
@@ -116,17 +116,17 @@ function drawMap(host: HTMLElement, pool: ParkSummary[], m: number, ranked: Park
     .attr('class', (d) => ((rank.get(d.p.code) ?? 99) <= 10 ? 'dot top' : 'dot'))
     .attr('fill', (d) => color(d.p.profile![m]))
     .on('pointerenter pointermove', (ev: PointerEvent, d) => showTooltip(
-      `<strong>${esc(d.p.name)}</strong><br>${fmtPct(d.p.profile![m])} of its year in ${MONTHS_LONG[m]}${rank.has(d.p.code) ? ` · #${rank.get(d.p.code)} quietest` : ' · off-season'}`,
+      `<strong>${esc(d.p.name)}</strong><br>${fmtPct(d.p.profile![m])} of its year in ${MONTHS_LONG[m]}${rank.has(d.p.code) ? ` · #${rank.get(d.p.code)} in the list` : ' · off-season'}`,
       ev.clientX, ev.clientY))
     .on('pointerleave', hideTooltip)
     .on('click', (_, d) => setState({ view: 'park', park: d.p.code }));
-  // Rank numbers on the ten quietest (identity not by color alone).
+  // Rank numbers on the first ten (identity not by color alone).
   g.selectAll('text').data(pts.filter((d) => (rank.get(d.p.code) ?? 99) <= 10)).join('text')
     .attr('class', 'dot-rank').attr('x', (d) => d.xy[0]).attr('y', (d) => d.xy[1]).attr('dy', '0.35em')
     .attr('text-anchor', 'middle').text((d) => rank.get(d.p.code)!);
 
   const offMap = pool.length - pts.length;
   host.append(h('p', { class: 'muted small map-key' },
-    'Faint dots are quiet this month; strong green dots are busy (share of each park’s year). Numbers mark the 10 quietest.',
-    offMap ? ` ${offMap} park${offMap > 1 ? 's' : ''} outside the map are listed only.` : ''));
+    `Darker dots have a bigger share of their year in ${MONTHS_LONG[m]}. Numbers mark the first 10 in the list.`,
+    offMap ? ` ${offMap} park${offMap > 1 ? 's aren’t' : ' isn’t'} on the map but ${offMap > 1 ? 'are' : 'is'} in the list.` : ''));
 }

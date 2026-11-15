@@ -11,7 +11,8 @@ import statesTopo from 'us-atlas/states-10m.json';
 import { MONTHS_LONG, REGIONS, STATE_NAMES, isNationalPark, type IndexFile, type ParkSummary } from '../data';
 import { quietestParks } from '../insights';
 import { PICKER_ICON, matchParks, optionEl, parkRow, parkTitle } from '../parkPicker';
-import { setState } from '../state';
+import { getState, setState } from '../state';
+import { isParkView } from './parkHeader';
 import { h } from '../ui';
 
 type PanelId = 'park' | 'month' | 'region' | 'scope';
@@ -40,20 +41,52 @@ const REGION_NOTE: Record<string, string> = {
   Territories: 'Puerto Rico, Guam, more',
 };
 
+export interface FinderValues {
+  park?: string | null;
+  /** 0-based month; null means none chosen on this page (the pill shows a "Month" placeholder
+   *  and a search uses the current month). */
+  month?: number | null;
+  region?: string;
+  scope?: 'np' | 'all';
+}
+
 export interface FinderOpts {
   /** 0-based current month. */
   now: number;
+  /** Starting selection (e.g. the page's current month and region). */
+  initial?: FinderValues;
+  /** Prefix for element ids, so two finders (hero + header) can coexist. */
+  uid?: string;
+  /** Called after a search navigates. */
+  onSubmit?: () => void;
+  /** The small header pill: park, month and region in one row, each opening its own picker
+   *  anchored under it. Otherwise the full four-part bar. */
+  compact?: boolean;
 }
 
-export function renderFinder(idx: IndexFile, { now }: FinderOpts): HTMLElement {
-  const sel = { park: null as ParkSummary | null, month: now, region: '', scope: 'np' as 'np' | 'all' };
+export interface FinderHandle {
+  el: HTMLFormElement;
+  /** Open one segment's picker (or close all with null). */
+  open: (id: PanelId | null) => void;
+  isOpen: () => boolean;
+  /** Replace the selection, e.g. when the page changes under a persistent finder. */
+  set: (v: FinderValues) => void;
+  /** Labels for a compact summary: park, month and region as shown. */
+  summary: () => { park: string; month: string; region: string };
+}
+
+export type { PanelId };
+
+export function renderFinder(idx: IndexFile, { now, initial, uid = 'finder', onSubmit, compact = false }: FinderOpts): FinderHandle {
+  const byCode = new Map(idx.parks.map((p) => [p.code, p]));
+  const sel = { park: null as ParkSummary | null, month: now, monthSet: true, region: '', scope: 'np' as 'np' | 'all' };
   const npCount = idx.parks.filter(isNationalPark).length;
   let open: PanelId | null = null;
 
   /* ---------- segments ---------- */
   const parkInput = h('input', {
-    type: 'text', placeholder: 'Search parks', autocomplete: 'off', spellcheck: 'false',
-    role: 'combobox', 'aria-autocomplete': 'list', 'aria-expanded': 'false', 'aria-controls': 'finder-pop-park', 'aria-label': 'Park',
+    type: 'text', placeholder: compact ? 'Any park' : 'Search parks', autocomplete: 'off', spellcheck: 'false',
+    role: 'combobox', 'aria-autocomplete': 'list', 'aria-expanded': 'false', 'aria-controls': `${uid}-pop-park`, 'aria-label': 'Park',
   });
   const clearBtn = h('button', { type: 'button', class: 'finder-clear', 'aria-label': 'Clear park', hidden: true });
   clearBtn.innerHTML = ICON.clear;
@@ -63,33 +96,44 @@ export function renderFinder(idx: IndexFile, { now }: FinderOpts): HTMLElement {
   const scopeVal = h('span', { class: 'seg-value' });
 
   const seg = (id: PanelId, label: string, value: HTMLElement) =>
-    h('button', { type: 'button', class: 'finder-seg', 'data-seg': id, 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-controls': `finder-pop-${id}` },
+    h('button', { type: 'button', class: 'finder-seg', 'data-seg': id, 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-controls': `${uid}-pop-${id}` },
       h('span', { class: 'seg-label' }, label), value);
 
-  const parkSeg = h('div', { class: 'finder-seg seg-park', 'data-seg': 'park' },
-    h('label', { class: 'seg-label', for: 'finder-park' }, 'Park'), parkInput, clearBtn);
-  parkInput.id = 'finder-park';
-  const segs: Record<PanelId, HTMLElement> = {
-    park: parkSeg,
-    month: seg('month', 'Month', monthVal),
-    region: seg('region', 'Region', regionVal),
-    scope: seg('scope', 'Type', scopeVal),
-  };
-
-  const go = h('button', { type: 'submit', class: 'finder-go', 'aria-label': 'Search' });
-  go.innerHTML = `${ICON.search}<span>Search</span>`;
+  let parkSeg: HTMLElement;
+  let segs: Record<PanelId, HTMLElement>;
+  let go: HTMLElement;
+  if (compact) {
+    // Header pill: values only, one picker per part, each anchored under it.
+    const cSeg = (id: PanelId, value: HTMLElement) =>
+      h('button', { type: 'button', class: `sbar-seg sbar-${id}`, 'data-seg': id, 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-controls': `${uid}-pop-${id}`, 'aria-label': id === 'month' ? 'Month' : 'Region' }, value);
+    parkSeg = h('div', { class: 'sbar-seg sbar-park', 'data-seg': 'park' }, parkInput);
+    parkSeg.insertAdjacentHTML('afterbegin', ICON.mountain.replace('class="ic"', 'class="sbar-ic"'));
+    go = h('button', { type: 'submit', class: 'sbar-go', 'aria-label': 'Search' });
+    go.innerHTML = ICON.search.replace('ic-search', 'sbar-search');
+    segs = { park: parkSeg, month: cSeg('month', monthVal), region: cSeg('region', regionVal), scope: go };
+  } else {
+    parkSeg = h('div', { class: 'finder-seg seg-park', 'data-seg': 'park' },
+      h('label', { class: 'seg-label', for: `${uid}-park` }, 'Park'), parkInput, clearBtn);
+    segs = { park: parkSeg, month: seg('month', 'Month', monthVal), region: seg('region', 'Region', regionVal), scope: seg('scope', 'Type', scopeVal) };
+    go = h('button', { type: 'submit', class: 'finder-go', 'aria-label': 'Search' });
+    go.innerHTML = `${ICON.search}<span>Search</span>`;
+  }
+  parkInput.id = `${uid}-park`;
 
   /* ---------- popovers ---------- */
   const pops: Record<PanelId, HTMLElement> = {
-    park: h('div', { class: 'finder-pop pop-park', id: 'finder-pop-park', role: 'listbox', 'aria-label': 'Parks' }),
-    month: h('div', { class: 'finder-pop pop-month', id: 'finder-pop-month', role: 'dialog', 'aria-label': 'Choose a month' }),
-    region: h('div', { class: 'finder-pop pop-region', id: 'finder-pop-region', role: 'dialog', 'aria-label': 'Choose a region' }),
-    scope: h('div', { class: 'finder-pop pop-scope', id: 'finder-pop-scope', role: 'dialog', 'aria-label': 'Choose park type' }),
+    park: h('div', { class: 'finder-pop pop-park', id: `${uid}-pop-park`, role: 'listbox', 'aria-label': 'Parks' }),
+    month: h('div', { class: 'finder-pop pop-month', id: `${uid}-pop-month`, role: 'dialog', 'aria-label': 'Choose a month' }),
+    region: h('div', { class: 'finder-pop pop-region', id: `${uid}-pop-region`, role: 'dialog', 'aria-label': 'Choose a region' }),
+    scope: h('div', { class: 'finder-pop pop-scope', id: `${uid}-pop-scope`, role: 'dialog', 'aria-label': 'Choose park type' }),
   };
   Object.values(pops).forEach((p) => (p.hidden = true));
 
-  const bar = h('div', { class: 'finder-bar' }, segs.park, segs.month, segs.region, segs.scope, go);
-  const form = h('form', { class: 'finder', role: 'search', onsubmit: (e: Event) => { e.preventDefault(); submit(); } },
+  const bar = compact
+    ? h('div', { class: 'finder-bar' }, segs.park, h('span', { class: 'sbar-sep', 'aria-hidden': 'true' }),
+      segs.month, h('span', { class: 'sbar-sep sbar-sep-region', 'aria-hidden': 'true' }), segs.region, go)
+    : h('div', { class: 'finder-bar' }, segs.park, segs.month, segs.region, segs.scope, go);
+  const form = h('form', { class: compact ? 'finder is-compact' : 'finder', role: 'search', onsubmit: (e: Event) => { e.preventDefault(); submit(); } },
     bar, ...Object.values(pops));
 
   /* ---------- park list (combobox) ---------- */
@@ -97,27 +141,28 @@ export function renderFinder(idx: IndexFile, { now }: FinderOpts): HTMLElement {
   let active = -1;
   const label = (p: ParkSummary) => parkTitle(idx, p);
 
-  // Before typing, suggest the quietest parks in whichever month is picked in the Month field.
+  // Before typing, suggest the off-peak parks in whichever month is picked in the Month field.
   const matches = (q: string): ParkSummary[] => (q.trim() ? matchParks(idx, q) : quietestParks(idx.parks, sel.month, 6));
 
   function renderParkList(): void {
-    const q = parkInput.value;
+    // The field showing the current choice isn't a search: offer suggestions until the user types.
+    const q = sel.park && parkInput.value === label(sel.park) ? '' : parkInput.value;
     options = matches(q);
     active = q.trim() && options.length ? 0 : -1;
     const head = q.trim()
       ? (options.length ? 'Parks' : `No parks match “${q.trim()}”`)
-      : `Quiet in ${MONTHS_LONG[sel.month]}`;
+      : `Off-peak in ${MONTHS_LONG[sel.month]}`;
     pops.park.replaceChildren(
       h('p', { class: 'pop-head' }, head),
-      ...options.map((p, i) => optionEl(parkRow(idx, p, q.trim() ? 'kind' : { month: sel.month }), `finder-opt-${i}`,
+      ...options.map((p, i) => optionEl(parkRow(idx, p, q.trim() ? 'kind' : { month: sel.month }), `${uid}-opt-${i}`,
         { active: i === active, current: sel.park?.code === p.code, onPick: () => pickPark(p) })));
     syncActive();
   }
 
   function syncActive(): void {
     pops.park.querySelectorAll('.pop-option').forEach((el, i) => el.setAttribute('aria-selected', String(i === active)));
-    parkInput.setAttribute('aria-activedescendant', active >= 0 ? `finder-opt-${active}` : '');
-    pops.park.querySelector(`#finder-opt-${active}`)?.scrollIntoView({ block: 'nearest' });
+    parkInput.setAttribute('aria-activedescendant', active >= 0 ? `${uid}-opt-${active}` : '');
+    pops.park.querySelector(`#${uid}-opt-${active}`)?.scrollIntoView({ block: 'nearest' });
   }
 
   function pickPark(p: ParkSummary): void {
@@ -128,7 +173,11 @@ export function renderFinder(idx: IndexFile, { now }: FinderOpts): HTMLElement {
     go.focus();
   }
 
-  parkInput.addEventListener('focus', () => setOpen('park'));
+  // Holding a park, the field selects its name on focus, so typing replaces it instead of appending.
+  let selectedOnFocus = false;
+  parkInput.addEventListener('focus', () => { setOpen('park'); if (sel.park) { parkInput.select(); selectedOnFocus = true; } });
+  // The click that focused the field would otherwise drop the selection on mouseup.
+  parkInput.addEventListener('mouseup', (e) => { if (selectedOnFocus) e.preventDefault(); selectedOnFocus = false; });
   parkInput.addEventListener('input', () => {
     sel.park = null;
     clearBtn.hidden = !parkInput.value;
@@ -165,7 +214,7 @@ export function renderFinder(idx: IndexFile, { now }: FinderOpts): HTMLElement {
         }, MONTHS_LONG[m].slice(0, 3), m === now ? h('i', { 'aria-hidden': 'true' }) : null))))),
     );
   }
-  function pickMonth(m: number): void { sel.month = m; syncValues(); setOpen('region'); }
+  function pickMonth(m: number): void { sel.month = m; sel.monthSet = true; syncValues(); if (compact) { setOpen(null); go.focus(); } else setOpen('region'); }
 
   /* ---------- region cards with mini maps ---------- */
   function renderRegion(): void {
@@ -174,7 +223,7 @@ export function renderFinder(idx: IndexFile, { now }: FinderOpts): HTMLElement {
       art.innerHTML = r === 'Territories' ? ICON.island : regionMap(r);
       return h('button', {
         type: 'button', class: `region-card${sel.region === r ? ' on' : ''}`, 'aria-pressed': String(sel.region === r),
-        onclick: () => { sel.region = r; syncValues(); setOpen('scope'); },
+        onclick: () => { sel.region = r; syncValues(); if (compact) { setOpen(null); go.focus(); } else setOpen('scope'); },
       }, art, h('span', { class: 'region-name' }, title), h('span', { class: 'region-note' }, note));
     };
     pops.region.replaceChildren(
@@ -204,8 +253,11 @@ export function renderFinder(idx: IndexFile, { now }: FinderOpts): HTMLElement {
 
   /* ---------- open / close ---------- */
   function syncValues(): void {
-    monthVal.textContent = MONTHS_LONG[sel.month];
+    const placeholder = compact && !sel.monthSet;
+    monthVal.textContent = placeholder ? 'Month' : MONTHS_LONG[sel.month];
+    monthVal.classList.toggle('is-placeholder', placeholder);
     regionVal.textContent = sel.region || 'Anywhere';
+    regionVal.classList.toggle('is-placeholder', compact && !sel.region);
     scopeVal.textContent = sel.scope === 'np' ? 'National parks' : 'All park units';
   }
 
@@ -215,6 +267,7 @@ export function renderFinder(idx: IndexFile, { now }: FinderOpts): HTMLElement {
     (Object.keys(pops) as PanelId[]).forEach((k) => {
       const on = k === id;
       pops[k].hidden = !on;
+      if (compact && k === 'scope') return; // the pill has no Type part (its slot is the search button)
       segs[k].classList.toggle('active', on);
       (k === 'park' ? parkInput : segs[k]).setAttribute('aria-expanded', String(on));
     });
@@ -224,17 +277,24 @@ export function renderFinder(idx: IndexFile, { now }: FinderOpts): HTMLElement {
     if (id === 'park' && document.activeElement !== parkInput) parkInput.focus();
   }
 
-  /** Align a popover under its segment, kept inside the bar's width. */
+  /** Align a popover under its segment: inside the bar's width for the full bar; for the
+   *  small pill, centered on the part clicked and kept inside the window. */
   function place(pop: HTMLElement, anchor: HTMLElement): void {
     if (matchMedia('(max-width: 760px)').matches) { pop.style.left = ''; return; }
+    if (compact) {
+      const f = form.getBoundingClientRect(), a = anchor.getBoundingClientRect(), w = pop.offsetWidth;
+      const left = Math.max(12, Math.min(innerWidth - w - 12, a.left + a.width / 2 - w / 2));
+      pop.style.left = `${left - f.left}px`;
+      return;
+    }
     const W = form.clientWidth, w = pop.offsetWidth;
     const want = anchor.offsetLeft + anchor.offsetWidth / 2 - w / 2;
     pop.style.left = `${Math.max(0, Math.min(W - w, want))}px`;
   }
 
-  (['month', 'region', 'scope'] as PanelId[]).forEach((k) =>
+  (compact ? ['month', 'region'] as PanelId[] : ['month', 'region', 'scope'] as PanelId[]).forEach((k) =>
     segs[k].addEventListener('click', () => setOpen(open === k ? null : k)));
-  parkSeg.addEventListener('click', (e) => { if (e.target !== clearBtn && !clearBtn.contains(e.target as Node)) parkInput.focus(); });
+  parkSeg.addEventListener('click', (e) => { if (e.target !== parkInput && e.target !== clearBtn && !clearBtn.contains(e.target as Node)) parkInput.focus(); });
 
   const onDocDown = (e: PointerEvent) => {
     if (!form.isConnected) { document.removeEventListener('pointerdown', onDocDown); document.removeEventListener('keydown', onKey); return; }
@@ -250,17 +310,39 @@ export function renderFinder(idx: IndexFile, { now }: FinderOpts): HTMLElement {
   document.addEventListener('keydown', onKey);
 
   function submit(): void {
-    setOpen(null);
     if (!sel.park && parkInput.value.trim()) {
       const best = matches(parkInput.value)[0];
-      if (best) sel.park = best;
+      if (!best) { setOpen('park'); return; } // show "No parks match" rather than an unrelated search
+      sel.park = best;
     }
-    if (sel.park) { setState({ view: 'park', park: sel.park.code }); return; }
-    setState({ view: 'when', month: sel.month + 1, region: sel.region, st: '', scope: sel.scope });
+    setOpen(null);
+    // A park search keeps you on the same park tab (Season drift stays Season drift).
+    if (sel.park) setState({ view: isParkView(getState().view) ? getState().view : 'park', park: sel.park.code });
+    else setState({ view: 'when', month: sel.month + 1, region: sel.region, st: '', scope: sel.scope });
+    onSubmit?.();
   }
 
+  function set(v: FinderValues): void {
+    if (v.month !== undefined) { sel.month = v.month ?? now; sel.monthSet = v.month != null; }
+    if (v.region != null) sel.region = v.region;
+    if (v.scope) sel.scope = v.scope;
+    if (v.park !== undefined) {
+      sel.park = v.park ? byCode.get(v.park) ?? null : null;
+      parkInput.value = sel.park ? label(sel.park) : '';
+      clearBtn.hidden = !sel.park;
+    }
+    syncValues();
+  }
+
+  if (initial) set(initial);
   syncValues();
-  return form;
+  return {
+    el: form,
+    open: (id) => setOpen(id),
+    isOpen: () => open != null,
+    set,
+    summary: () => ({ park: sel.park ? label(sel.park) : 'Any park', month: MONTHS_LONG[sel.month], region: sel.region || 'Anywhere' }),
+  };
 }
 
 /* ---------- mini US maps (built once, on first open) ---------- */

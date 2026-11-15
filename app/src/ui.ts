@@ -50,7 +50,7 @@ export function countUp(el: HTMLElement, from: number, to: number, format: (n: n
 }
 
 /** Read a duration token (e.g. --dur-3) in ms, so JS motion obeys the same tokens and reduced motion. */
-const durMs = (token: string): number => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(token)) || 0;
+export const durMs = (token: string): number => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(token)) || 0;
 
 type Rect = { left: number; width: number };
 /** Per control: where the pill is headed, where it started, and when (performance.now()). */
@@ -160,7 +160,7 @@ export const modeToggle = (mode: Mode): HTMLElement =>
   segmented<Mode>('Color by', [
     { value: 'visits', label: 'Visits' },
     { value: 'share', label: 'Share of year' },
-    { value: 'index', label: 'Index vs normal' },
+    { value: 'index', label: 'Vs. usual' },
   ], mode, (m) => setState({ mode: m }));
 
 export const loading = (): HTMLElement => h('p', { class: 'muted loading' }, 'Loading…');
@@ -169,3 +169,9 @@ export const errorBox = (msg: string): HTMLElement => h('p', { class: 'error', r
 /** replaceChildren that skips conditional `false`/null entries. */
 export const fill = (root: HTMLElement, ...children: (Node | string | null | undefined | false)[]): void =>
   root.replaceChildren(...children.filter((c): c is Node | string => c != null && c !== false));
+
+/** "2026-03-26" → "Mar 26, 2026" (no time zone shift). */
+export const fmtDate = (iso: string | null): string => {
+  const m = iso?.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'date unknown';
+};

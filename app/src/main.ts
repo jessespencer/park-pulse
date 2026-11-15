@@ -6,10 +6,12 @@ import '@fontsource-variable/public-sans';
 import './style.css';
 import { emblem, paintTopo, topo } from './art';
 import { loadIndex } from './data';
-import { parkPicker } from './parkPicker';
+import { mountDock, type Dock } from './dock';
+import { PAGES, menuPage, pageLabel } from './pages';
+import { isParkView } from './views/parkHeader';
 import { getState, setState, subscribe, type AppState, type View } from './state';
 import { hideTooltip } from './tooltip';
-import { errorBox, h } from './ui';
+import { durMs, errorBox, fmtDate, h, reduceMotion } from './ui';
 import { renderCompare } from './views/compare';
 import { renderDrift } from './views/drift';
 import { renderHome } from './views/home';
@@ -17,39 +19,70 @@ import { renderPark } from './views/park';
 import { renderWall } from './views/wall';
 import { renderWhen } from './views/when';
 
-const VIEWS: { id: View; label: string; nav: boolean; render: (root: HTMLElement, s: AppState) => Promise<void> }[] = [
-  { id: 'home', label: 'Trailhead', nav: false, render: (root) => renderHome(root) },
-  { id: 'when', label: 'When to go', nav: true, render: renderWhen },
-  { id: 'park', label: 'Park heatmap', nav: true, render: renderPark },
-  { id: 'wall', label: 'Fingerprints', nav: true, render: renderWall },
-  { id: 'drift', label: 'Season drift', nav: true, render: renderDrift },
-  { id: 'compare', label: 'Compare', nav: true, render: renderCompare },
-];
+const RENDER: Record<View, (root: HTMLElement, s: AppState) => Promise<void>> = {
+  home: (root) => renderHome(root), when: renderWhen, park: renderPark, wall: renderWall, drift: renderDrift, compare: renderCompare,
+};
 
 const app = document.getElementById('app')!;
 const nav = document.getElementById('nav')!;
 let renderSeq = 0;
 /** The page a render belongs to; entrance motion plays only when this changes, not on filter tweaks. */
 let pageKey = '';
+let pageView: View | '' = '';
+let dock: Dock | null = null;
 
 function renderNav(s: AppState): void {
-  nav.replaceChildren(...VIEWS.filter((v) => v.nav).map((v) => h('a', {
-    href: `?view=${v.id}`,
-    'aria-current': v.id === s.view ? 'page' : undefined,
-    onclick: (e: Event) => { e.preventDefault(); setState({ view: v.id }); },
-  }, v.label)));
+  nav.replaceChildren(...PAGES.map((v) => {
+    const icon = h('span', { class: 'menu-ic' });
+    icon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${v.icon}"/></svg>`;
+    return h('a', {
+      href: `?view=${v.id}`,
+      'aria-current': v.id === menuPage(s.view) ? 'page' : undefined,
+      onclick: (e: Event) => { e.preventDefault(); setMenu(false); setState({ view: v.id }); },
+    }, icon, h('span', { class: 'menu-text' }, h('span', { class: 'menu-title' }, v.label), h('span', { class: 'menu-blurb' }, v.blurb)));
+  }));
+  menuLabel.textContent = s.view === 'home' ? 'Explore' : pageLabel(menuPage(s.view));
 }
+
+/* ---------- Menu (the views live here, so the header stays one row with the search centered) ---------- */
+const menuBtn = document.getElementById('menu-btn') as HTMLButtonElement;
+const menuLabel = document.getElementById('menu-label')!;
+function setMenu(open: boolean): void {
+  if (open === !nav.hidden) return;
+  menuBtn.setAttribute('aria-expanded', String(open));
+  if (open) {
+    nav.hidden = false;
+    if (!reduceMotion()) nav.animate([{ opacity: 0, transform: 'translateY(-6px) scale(0.97)' }, { opacity: 1, transform: 'none' }], { duration: durMs('--dur-2'), easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
+    nav.querySelector<HTMLElement>('a[aria-current="page"], a')?.focus();
+  } else {
+    nav.hidden = true;
+  }
+}
+menuBtn.addEventListener('click', () => setMenu(nav.hidden));
+document.addEventListener('pointerdown', (e) => { if (!nav.hidden && !(e.target as Element).closest('.menu')) setMenu(false); });
+document.addEventListener('keydown', (e) => {
+  if (nav.hidden) return;
+  if (e.key === 'Escape') { setMenu(false); menuBtn.focus(); return; }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const links = [...nav.querySelectorAll<HTMLElement>('a')];
+    const i = links.indexOf(document.activeElement as HTMLElement);
+    links[(i + (e.key === 'ArrowDown' ? 1 : -1) + links.length) % links.length]?.focus();
+  }
+});
 
 async function render(s: AppState, opts: { scrollTop?: boolean } = {}): Promise<void> {
   const seq = ++renderSeq;
   hideTooltip();
   renderNav(s);
-  const view = VIEWS.find((v) => v.id === s.view)!;
-  document.title = s.view === 'home' ? 'Park Pulse — beat the crowds' : `${view.label} · Park Pulse`;
+  document.title = s.view === 'home' ? 'Park Pulse: busy seasons at U.S. national parks' : `${pageLabel(s.view)} · Park Pulse`;
   document.body.dataset.view = s.view;
-  const key = `${s.view}:${s.view === 'compare' ? `${s.a}|${s.b}` : s.view === 'park' || s.view === 'drift' ? s.park : ''}`;
+    // A park's tabs are one page: switching tabs swaps only the tab body (see .is-tab-enter).
+  const key = isParkView(s.view) && s.park ? `park:${s.park}` : s.view;
   const entering = key !== pageKey;
+  const tabSwitch = !entering && isParkView(s.view) && s.view !== pageView;
   pageKey = key;
+  pageView = s.view;
   const stage = h('div', { class: s.view === 'home' ? 'stage stage-full' : 'stage' });
   // Build the next page in the document (charts measure their width) but hidden, and keep
   // the current page on screen until it's ready: no flash of an empty "Loading…" page with
@@ -58,17 +91,25 @@ async function render(s: AppState, opts: { scrollTop?: boolean } = {}): Promise<
   if (current) { stage.classList.add('is-pending'); app.append(stage); } else app.replaceChildren(stage);
   const slow = current ? window.setTimeout(() => current.classList.add('is-busy'), 250) : 0;
   try {
-    await view.render(stage, s);
+    await RENDER[s.view](stage, s);
   } catch (err) {
     stage.replaceChildren(errorBox(String(err instanceof Error ? err.message : err)));
   }
   clearTimeout(slow);
   if (seq !== renderSeq) { stage.remove(); return; }
-  app.querySelectorAll(':scope > .stage').forEach((el) => el !== stage && el.remove());
+  // Show the new page before removing the old one, so the document never collapses and resets the scroll.
   stage.classList.remove('is-pending');
+  app.querySelectorAll(':scope > .stage').forEach((el) => el !== stage && el.remove());
   if (entering) stage.classList.add('is-enter'); // entrance starts at the swap, not while hidden
-  if (opts.scrollTop) scrollTo({ top: 0 });
+  if (tabSwitch) {
+    stage.classList.add('is-tab-enter');
+    // Keep the reader's place, unless the tabs have scrolled away: then bring them back under the header.
+    const tabs = stage.querySelector<HTMLElement>('.park-tabs');
+    const headerH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-h')) || 0;
+    if (tabs && tabs.getBoundingClientRect().top < headerH) scrollTo({ top: tabs.getBoundingClientRect().top + scrollY - headerH });
+  } else if (opts.scrollTop) scrollTo({ top: 0 });
   paintTopo();
+  dock?.update(s);
 }
 
 /* Theme: Auto (OS) → Day → Night. A per-viewer convenience, so localStorage is fine. */
@@ -85,8 +126,7 @@ function applyTheme(t: Theme): void {
   else document.documentElement.dataset.theme = t;
   themeBtn.innerHTML = THEME_ICON[t];
   const name = t === 'light' ? 'Day' : t === 'dark' ? 'Night' : 'Auto';
-  themeBtn.title = `Theme: ${name}`;
-  themeBtn.setAttribute('aria-label', `Theme: ${name}. Click to change.`);
+  themeBtn.title = `Theme: ${name}`; // also the button's accessible name
 }
 let theme: Theme = 'auto';
 try { theme = (localStorage.getItem('pp-theme') as Theme) || 'auto'; } catch { /* storage blocked */ }
@@ -123,6 +163,9 @@ addEventListener('resize', () => {
   resizeTimer = window.setTimeout(() => void render(getState()), 150);
 });
 
+// render() decides where each page starts (top, or the park tabs), so the browser shouldn't restore on Back.
+history.scrollRestoration = 'manual';
+
 async function boot(): Promise<void> {
   document.getElementById('brand-mark')!.innerHTML = emblem(28);
   syncHeaderHeight();
@@ -130,10 +173,7 @@ async function boot(): Promise<void> {
   document.getElementById('brand')!.addEventListener('click', (e) => { e.preventDefault(); setState({ view: 'home' }); });
 
   const idx = await loadIndex();
-  document.getElementById('header-search')!.replaceChildren(parkPicker(idx, {
-    context: { kind: 'header' },
-    onPick: (code) => setState({ view: getState().view === 'drift' ? 'drift' : 'park', park: code }),
-  }));
+  dock = mountDock(document.getElementById('dock')!, document.querySelector<HTMLElement>('.site-header')!, idx);
 
   if (!idx.hasMetadata) {
     const b = document.getElementById('banner')!;
@@ -143,11 +183,10 @@ async function boot(): Promise<void> {
   const lastYear = Math.max(...idx.parks.map((p) => p.lastYear));
   const footer = document.getElementById('footer')!;
   footer.replaceChildren(h('div', { class: 'footer-inner' },
-    h('div', { class: 'footer-brand' }, h('span', { class: 'brand-name' }, 'Park Pulse'),
-      h('p', {}, 'Leave no trace. Go when it’s quiet.')),
+    h('div', { class: 'footer-brand' }, h('span', { class: 'brand-name' }, 'Park Pulse')),
     h('p', { class: 'footer-meta' },
       'Data: ', h('a', { href: 'https://irma.nps.gov/DataStore/Reference/Profile/2317666', target: '_blank', rel: 'noopener' }, 'NPS Visitor Use Statistics'),
-      ` (CC0) · recreation visits 1979–${lastYear} · published ${idx.asOf ?? 'n/a'}. `,
+      ` (CC0) · recreation visits 1979–${lastYear} · published ${fmtDate(idx.asOf)}. `,
       'Counts as published by NPS; counting methods vary by park. An independent project — not affiliated with or endorsed by the National Park Service.')));
   const mark = h('span', { class: 'footer-mark' });
   mark.innerHTML = emblem(32);
@@ -158,7 +197,7 @@ async function boot(): Promise<void> {
   let prev = getState();
   subscribe((s) => {
     // A new page scrolls to the top once it has swapped in, not before.
-    void render(s, { scrollTop: s.view !== prev.view || s.park !== prev.park });
+    void render(s, { scrollTop: s.park !== prev.park || (s.view !== prev.view && !(isParkView(s.view) && isParkView(prev.view))) });
     prev = s;
   });
   await render(getState());

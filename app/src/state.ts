@@ -12,7 +12,7 @@ export interface AppState {
   st: string;
   scope: 'np' | 'all';
   open: boolean; // when-to-go: hide parks that are mostly closed that month
-  a: string;
+  /** Compare: the park compared with `park`. */
   b: string;
 }
 
@@ -21,8 +21,8 @@ const MODES: Mode[] = ['visits', 'share', 'index'];
 const SORTS: WallSort[] = ['peak', 'peakiness', 'total'];
 
 const DEFAULTS: AppState = {
-  view: 'home', park: 'ROMO', mode: 'visits', sort: 'peak', month: new Date().getMonth() + 1,
-  region: '', st: '', scope: 'np', open: true, a: 'ROMO', b: 'GRSM',
+  view: 'home', park: '', mode: 'visits', sort: 'peak', month: new Date().getMonth() + 1,
+  region: '', st: '', scope: 'np', open: true, b: '',
 };
 
 const pick = <T extends string>(v: string | null, allowed: readonly T[], d: T): T =>
@@ -34,7 +34,8 @@ export function readState(): AppState {
   const m = Number(q.get('month'));
   return {
     view: pick(q.get('view'), VIEWS, DEFAULTS.view),
-    park: code(q.get('park'), DEFAULTS.park),
+    // Old Compare links named the first park `a`.
+    park: code(q.get('park'), '') || (q.get('view') === 'compare' ? code(q.get('a'), '') : ''),
     mode: pick(q.get('mode'), MODES, DEFAULTS.mode),
     sort: pick(q.get('sort'), SORTS, DEFAULTS.sort),
     month: Number.isInteger(m) && m >= 1 && m <= 12 ? m : DEFAULTS.month,
@@ -42,7 +43,6 @@ export function readState(): AppState {
     st: (q.get('state') ?? '').toUpperCase(),
     scope: q.get('scope') === 'all' ? 'all' : 'np',
     open: q.get('open') !== '0',
-    a: code(q.get('a'), DEFAULTS.a),
     b: code(q.get('b'), DEFAULTS.b),
   };
 }
@@ -54,7 +54,7 @@ const VIEW_KEYS: Record<View, (keyof AppState)[]> = {
   wall: ['sort', 'scope'],
   when: ['month', 'region', 'st', 'scope', 'open'],
   drift: ['park'],
-  compare: ['a', 'b', 'mode'],
+  compare: ['park', 'b', 'mode'],
 };
 
 export function toSearch(s: AppState): string {
@@ -63,7 +63,7 @@ export function toSearch(s: AppState): string {
   for (const k of VIEW_KEYS[s.view]) {
     const v = s[k];
     // Identity keys (and month, whose default moves with the calendar) always go in the URL.
-    if (v === DEFAULTS[k] && !['park', 'a', 'b', 'month'].includes(k)) continue;
+    if (v === DEFAULTS[k] && !['park', 'b', 'month'].includes(k)) continue;
     if (v === '') continue;
     q.set(k === 'st' ? 'state' : k, typeof v === 'boolean' ? (v ? '1' : '0') : String(v));
   }

@@ -84,7 +84,7 @@ export const MONTHS_LONG = [
 export const fmtInt = (n: number): string => n.toLocaleString('en-US');
 export const fmtPct = (x: number, digits = 1): string => `${(x * 100).toFixed(digits)}%`;
 export const fmtCompact = (n: number): string =>
-  new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
+  new Intl.NumberFormat('en-US', { notation: 'compact', maximumSignificantDigits: 2 }).format(n);
 
 /** US Census regions; territories grouped separately. */
 export const REGIONS: Record<string, string[]> = {
