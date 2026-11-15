@@ -145,9 +145,17 @@ export function combobox(o: ComboOpts): HTMLElement {
 
   /** Hang from the field's left edge; if that runs off the window, line up with its right edge instead. */
   function place(): void {
-    pop.style.left = ''; pop.style.right = '';
-    if (o.variant === 'header') return; // CSS right-aligns the header popover
-    if (pop.getBoundingClientRect().right > innerWidth - 16) { pop.style.left = 'auto'; pop.style.right = '0'; }
+    const gutter = 16, vw = innerWidth;
+    pop.style.left = ''; pop.style.right = ''; pop.style.width = '';
+    let r = pop.getBoundingClientRect();
+    // The header popover is right-aligned by CSS; field popovers flip to the field's right edge.
+    if (o.variant !== 'header' && r.right > vw - gutter) { pop.style.left = 'auto'; pop.style.right = '0'; r = pop.getBoundingClientRect(); }
+    // Still spilling (small screens): pin it between the window's gutters.
+    if (r.left < gutter || r.right > vw - gutter) {
+      pop.style.right = 'auto';
+      pop.style.left = `${gutter - root.getBoundingClientRect().left}px`;
+      pop.style.width = `${vw - gutter * 2}px`;
+    }
   }
 
   function open(): void {
@@ -263,7 +271,9 @@ export function statePicker(opts: {
     return { code: st, title: name(st), sub: `${n} ${opts.unit}${n === 1 ? '' : 's'}`, kind: 'place' };
   };
   const all: PickRow = { code: '', title: 'All states', sub: 'No state filter', kind: 'all' };
-  const sorted = [...opts.states].sort((a, b) => name(a).localeCompare(name(b)));
+  // Only states that have parks under the current filters (plus the current choice, so it stays visible).
+  const sorted = opts.states.filter((st) => (opts.counts.get(st) ?? 0) > 0 || st === opts.value)
+    .sort((a, b) => name(a).localeCompare(name(b)));
   return combobox({
     label: opts.label, value: opts.value, display: (v) => (v ? name(v) : 'All states'), placeholder: 'All states',
     size: 'sm', affordance: 'select', resultsHead: 'States',

@@ -783,7 +783,7 @@ footer a:hover { color: var(--sign-ink); }
   .site-header { position: static; }
   .header-inner { padding: 0.6rem 16px 0.3rem; min-height: 0; }
   .header-tools { margin-left: auto; }
-  .picker-box { width: 100%; }
+  .park-picker.field .picker-box { width: 100%; }
   .park-picker.field { display: flex; width: 100%; }
   .brand-name { font-size: 1.2rem; }
   .header-inner { flex-wrap: wrap; column-gap: 0.75rem; }
@@ -800,7 +800,12 @@ footer a:hover { color: var(--sign-ink); }
   .seg-park { flex-basis: 100%; padding-right: 2.6rem; }
   .finder-seg + .finder-seg::before { display: none; }
   .finder-go { width: 100%; margin: 4px 0 0; justify-content: center; border-radius: 18px; }
-  .finder-pop { left: 0 !important; right: 0; width: auto; border-radius: 22px; padding: 1.1rem; }
+  .pop-row { flex-wrap: wrap; gap: 0.6rem; }
+  .pop-chip { white-space: nowrap; }
+  .finder .finder-pop { left: 0 !important; right: 0; width: auto; border-radius: 22px; padding: 1.1rem; }
+  .park-picker.field .picker-pop { left: 0; right: 0; width: auto; }
+  /* Open header search covers the whole bar up to the theme button instead of half the logo. */
+  .park-picker.header.open .picker-box { width: calc(100vw - 32px - 44px); }
   .pop-park, .pop-scope { padding-inline: 0.5rem; }
   .region-grid { grid-template-columns: repeat(2, 1fr); }
   .season { grid-template-columns: 3.6rem repeat(3, 1fr); }
