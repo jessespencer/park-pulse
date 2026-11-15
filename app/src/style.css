@@ -201,12 +201,20 @@ main { min-height: 60vh; position: relative; }
   cursor: pointer; font-weight: 500; font-size: 0.86rem; color: var(--muted); transition: color var(--dur-2) var(--ease-out);
 }
 .segmented button:hover { color: var(--ink); }
-.segmented button.active { color: var(--btn-ink); }
-.segmented:not(.is-ready) button.active { background: var(--btn-bg); } /* until the pill is measured */
 .seg-indicator {
-  position: absolute; top: 3px; bottom: 3px; left: 3px; width: 0; border-radius: 999px; background: var(--btn-bg);
+  position: absolute; z-index: 2; top: 3px; bottom: 3px; left: 3px; width: 0; border-radius: 999px; background: var(--btn-bg);
+  overflow: hidden; pointer-events: none; /* sits over the labels, clicks pass through to the buttons */
 }
-.seg-indicator.is-moving { transition: left var(--dur-3) var(--ease-spring), width var(--dur-3) var(--ease-spring); }
+/* Dark copy of the labels, laid over the real ones (JS positions it) and clipped by the pill. */
+.seg-ink {
+  /* Same box model as the group (padding 3px, gap 2px, inner height) so each label lays out
+     exactly over its button with no measuring; JS only slides it to counter the pill. */
+  position: absolute; top: -3px; left: 0; display: flex; gap: 2px; padding: 3px; height: calc(var(--ctl-h) - 2px);
+}
+.seg-ink-label {
+  display: flex; align-items: center; justify-content: center; padding: 0 0.95rem; white-space: nowrap;
+  font-weight: 500; font-size: 0.86rem; color: var(--btn-ink);
+}
 .segmented:not(.is-ready) .seg-indicator { opacity: 0; }
 
 /* Switch (role="switch"): the thumb springs across. */
@@ -717,12 +725,12 @@ footer a:hover { color: var(--sign-ink); }
 .stage.is-enter .rib-bar { transform-box: fill-box; transform-origin: bottom; animation: grow var(--dur-3) var(--ease-out) backwards; animation-delay: calc(180ms + var(--i, 0) * 28ms); }
 .stage.is-enter .rib-label { animation: fade var(--dur-3) var(--ease-out) 600ms backwards; }
 .stage.is-enter .heatmap svg { animation: wipe-down calc(var(--dur-3) * 2.4) cubic-bezier(0.45, 0.05, 0.25, 1) 160ms backwards; }
-.stage:not(.is-enter) .heatmap svg { animation: fade var(--dur-2) var(--ease-out); } /* color mode swapped */
 .stage.is-enter .chart svg { animation: wipe calc(var(--dur-3) * 2.2) cubic-bezier(0.45, 0.05, 0.25, 1) 160ms backwards; }
 .stage.is-enter .map svg { animation: fade calc(var(--dur-3) * 1.5) var(--ease-out) 120ms backwards; }
 
-/* Lists arrive in a quick stagger whenever their contents change. */
-.result-list > li, .now-list > li, .tool-grid > *, .wall > .fp-card, .ranger-notes li {
+/* Lists arrive in a quick stagger on a new page. Filter changes update them in place:
+   replaying the entrance on every toggle reads as a flash. */
+.stage.is-enter :is(.result-list > li, .now-list > li, .tool-grid > *, .wall > .fp-card, .ranger-notes li) {
   animation: rise var(--dur-2) var(--ease-out) backwards; animation-delay: calc(min(var(--i, 0), 12) * 24ms);
 }
 /* Inside the home filter's popovers, contents just fade in: no travel, no bounce. */
@@ -743,7 +751,8 @@ footer a:hover { color: var(--sign-ink); }
   transition-property: color, background-color, border-color, box-shadow, transform, filter;
   transition-duration: var(--dur-1); transition-timing-function: var(--ease-out);
 }
-:is(.btn, .chip, .chip-link, .segmented button, .month-strip button, .tile-go, .theme-btn, .switch):active { transform: scale(0.96); }
+:is(.btn, .chip, .chip-link, .month-strip button, .tile-go, .theme-btn, .switch):active { transform: scale(0.96); }
+/* Segmented buttons don't scale on press: the pill's label copy must stay aligned with them. */
 :is(.pop-chip, .month-tile, .pop-option, .scope-row):active { transform: scale(0.985); }
 /* Home filter: a light press, no bounce. */
 .finder-seg:active { transform: scale(0.975); }
@@ -753,7 +762,6 @@ footer a:hover { color: var(--sign-ink); }
 .region-art { transition: border-color var(--dur-1), transform var(--dur-1) var(--ease-out); }
 
 /* Selection settles with a small pop. */
-.seg-indicator.is-pop { animation: pop var(--dur-2) var(--ease-out); }
 .scope-row .radio { transition: border-width var(--dur-2) var(--ease-out), border-color var(--dur-2); }
 
 /* Icons: the theme icon turns into place on every swap. */
